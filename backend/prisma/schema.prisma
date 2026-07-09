@@ -1,0 +1,698 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODELOS DE AUTENTICACIÓN Y USUARIOS
+// ============================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  name          String?
+  role          UserRole  @default(STORE_OWNER)
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relaciones
+  store          Store?
+  sessions       Session[]
+  passwordResets PasswordReset[]
+  productLogs    ProductLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  STORE_OWNER
+  MANAGER
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  User      User?    @relation(fields: [userId], references: [id])
+  userId    Int?
+
+  @@map("password_resets")
+}
+
+// ============================================
+// MODELOS DE TIENDA
+// ============================================
+
+model Store {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  logoUrl     String?
+  bannerUrl   String?
+
+  // Contacto
+  email    String?
+  phone    String?
+  whatsapp String?
+
+  // Dirección
+  address  String?
+  city     String?
+  province String?
+  zipCode  String?
+  country  String  @default("Argentina")
+
+  // Configuración
+  isActive   Boolean @default(true)
+  isVerified Boolean @default(false)
+
+  // Horarios de atención
+  businessHours Json? // { monday: { open: "09:00", close: "18:00" }, ... }
+
+  // Metadatos
+  responseTimeMinutes Int? // Tiempo promedio de respuesta
+  rating              Float? // Rating promedio de la tienda
+  totalSales          Int    @default(0)
+
+  // Nuevos campos para monetización y créditos AI
+  subscriptionTier SubscriptionTier @default(BRONZE)
+  ai3dCredits      Int              @default(0)
+  ai3dUsed         Int              @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  owner    User      @relation(fields: [ownerId], references: [id])
+  ownerId  Int       @unique
+  products Product[]
+  orders   Order[]
+
+  // Relaciones inversas
+  creditPurchases  CreditPurchase[]
+  ai3dJobs         AI3DJob[]
+
+  @@map("stores")
+}
+
+// ============================================
+// MODELOS DE PRODUCTO (ECOSISTEMA COMPLETO)
+// ============================================
+
+model Product {
+  id          Int     @id @default(autoincrement())
+  sku         String  @unique
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+
+  // Estado
+  isActive   Boolean @default(true)
+  isFeatured Boolean @default(false)
+
+  // Categorización
+  category    String
+  subcategory String?
+  room        String?
+  style       String?
+  tags        String[] // Array de tags
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  keywords        String[]
+
+  // Relaciones
+  store   Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeId Int
+
+  // Contenido multimedia principal
+  media ProductMedia[]
+
+  // Estructuras anidadas (JSON)
+  materials  Json? // ProductMaterials
+  warranty   Json? // ProductWarranty
+  logistics  Json? // ProductLogistics
+  dimensions Json? // ProductDimensions
+  seo        Json? // ProductSEO
+
+  // Reviews
+  reviews     ProductReview[]
+  avgRating   Float           @default(0)
+  reviewCount Int             @default(0)
+
+  // Relaciones
+  variants  ProductVariant[]
+  pricing   ProductPricing?
+  inventory ProductInventory?
+
+  // Estadísticas
+  viewCount     Int @default(0)
+  wishlistCount Int @default(0)
+  inquiryCount  Int @default(0) // Consultas WhatsApp
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones con productos relacionados
+  relatedProducts ProductRelation[] @relation("ProductRelations")
+  parentRelations ProductRelation[] @relation("RelatedToProduct")
+
+  // Carrito y Ordenes
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  // Vistas y consultas
+  views        ProductView[]
+  inquiries    ProductInquiry[]
+  WishlistItem WishlistItem[]
+  productLogs  ProductLog[]
+  ai3dJobs     AI3DJob[]
+
+  @@map("products")
+}
+
+// ============================================
+// VARIANTES DE PRODUCTO
+// ============================================
+
+model ProductVariant {
+  id   String @id @default(uuid())
+  sku  String @unique
+  name String // Ej: "Gris Claro - 3 cuerpos"
+
+  // Atributos de la variante
+  color  String?
+  fabric String?
+  size   String?
+  finish String?
+
+  // Precios específicos
+  listPrice Float
+  salePrice Float
+  currency  String @default("ARS")
+
+  // Inventario por variante
+  stock         Int     @default(0)
+  reservedStock Int     @default(0)
+  isDefault     Boolean @default(false)
+
+  // Relaciones
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  // Imágenes específicas de la variante
+  images ProductVariantImage[]
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  ai3dJobs   AI3DJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product_variants")
+}
+
+model ProductVariantImage {
+  id        Int     @id @default(autoincrement())
+  url       String
+  alt       String?
+  sortOrder Int     @default(0)
+
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variantId String
+
+  @@map("product_variant_images")
+}
+
+// ============================================
+// PRECIOS Y FINANCIACIÓN
+// ============================================
+
+model ProductPricing {
+  id       Int    @id @default(autoincrement())
+  currency String @default("ARS")
+
+  // Precios base (si no hay variantes)
+  listPrice Float?
+  salePrice Float?
+
+  // Costo de envío (null = gratis)
+  shippingCost Float?
+
+  // Opciones de financiación
+  financingOptions Json? // [{ installments: 3, installmentPrice: 1000, interestFree: true }]
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int     @unique
+
+  @@map("product_pricing")
+}
+
+// ============================================
+// INVENTARIO
+// ============================================
+
+model ProductInventory {
+  id Int @id @default(autoincrement())
+
+  // Configuración
+  trackStock     Boolean @default(true)
+  allowBackorder Boolean @default(false)
+
+  // Niveles de stock (para productos sin variantes)
+  totalStock     Int @default(0)
+  reservedStock  Int @default(0)
+  availableStock Int @default(0)
+  lowStockAlert  Int @default(5)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int     @unique
+
+  @@map("product_inventory")
+}
+
+// ============================================
+// MULTIMEDIA
+// ============================================
+
+model ProductMedia {
+  id        Int       @id @default(autoincrement())
+  type      MediaType @default(IMAGE)
+  url       String
+  alt       String?
+  sortOrder Int       @default(0)
+  isPrimary Boolean   @default(false)
+
+  // Para modelos 3D
+  mediaFormat MediaFormat?
+
+  // Documentos
+  documentType DocumentType?
+  title        String?
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  @@map("product_media")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  MODEL_3D
+  DOCUMENT
+}
+
+enum MediaFormat {
+  GLB
+  USDZ
+}
+
+enum DocumentType {
+  MANUAL
+  WARRANTY
+  ASSEMBLY_GUIDE
+  CERTIFICATE
+  OTHER
+}
+
+// ============================================
+// REVIEWS Y RATINGS
+// ============================================
+
+model ProductReview {
+  id      Int     @id @default(autoincrement())
+  rating  Int // 1-5
+  title   String?
+  comment String? @db.Text
+
+  // Campos verificados
+  isVerifiedPurchase Boolean @default(false)
+  isVisible          Boolean @default(true)
+
+  // Respuesta del vendedor
+  sellerResponse   String?   @db.Text
+  sellerResponseAt DateTime?
+
+  // Media adjunta
+  images String[]
+
+  // Relaciones
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  // Usuario que dejó la review (opcional, puede ser anónimo)
+  userId Int?
+
+  // Metadata
+  helpfulCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product_reviews")
+}
+
+// ============================================
+// RELACIONES ENTRE PRODUCTOS
+// ============================================
+
+model ProductRelation {
+  id   Int          @id @default(autoincrement())
+  type RelationType @default(RELATED)
+
+  product   Product @relation("ProductRelations", fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  relatedTo   Product @relation("RelatedToProduct", fields: [relatedToId], references: [id], onDelete: Cascade)
+  relatedToId Int
+
+  sortOrder Int @default(0)
+
+  @@unique([productId, relatedToId, type])
+  @@map("product_relations")
+}
+
+enum RelationType {
+  RELATED // Productos relacionados
+  UPSELL // Productos más caros/mejores
+  CROSS_SELL // Productos complementarios
+  BUNDLE // Parte de un bundle
+}
+
+// ============================================
+// FAVORITOS
+// ============================================
+
+model WishlistItem {
+  id Int @id @default(autoincrement())
+
+  // Identificación del usuario (puede ser guest con sessionId)
+  userId    Int?
+  sessionId String?
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  // Notificaciones
+  notifyPriceDrop Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@unique([sessionId, productId])
+  @@map("wishlist_items")
+}
+
+// ============================================
+// CARRITO (Persistente)
+// ============================================
+
+model Cart {
+  id        String @id @default(uuid())
+  sessionId String @unique
+  userId    Int?
+
+  items CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id       Int @id @default(autoincrement())
+  quantity Int @default(1)
+
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId String
+
+  // Producto y variante
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  variantId String?
+
+  // Snapshot de precios (por si cambian)
+  priceSnapshot Float
+
+  @@unique([cartId, productId, variantId])
+  @@map("cart_items")
+}
+
+// ============================================
+// ÓRDENES Y CONSULTAS
+// ============================================
+
+model Order {
+  id     String      @id @default(uuid())
+  status OrderStatus @default(PENDING)
+
+  // Totales
+  subtotal     Float
+  shippingCost Float
+  discount     Float @default(0)
+  total        Float
+
+  // Información del cliente
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  customerAddress String?
+
+  // Notas
+  customerNotes String? @db.Text
+  sellerNotes   String? @db.Text
+
+  // Canal de origen
+  source ChannelSource @default(WEB)
+
+  // Relaciones
+  store   Store @relation(fields: [storeId], references: [id])
+  storeId Int
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING // Pendiente de contacto/confirmación
+  CONTACTED // Cliente contactado
+  CONFIRMED // Pedido confirmado
+  IN_PRODUCTION // En fabricación/preparación
+  READY // Listo para envío/retiro
+  SHIPPED // Enviado
+  DELIVERED // Entregado
+  CANCELLED // Cancelado
+}
+
+enum ChannelSource {
+  WEB
+  WHATSAPP
+  INSTAGRAM
+  PHONE
+  IN_STORE
+}
+
+model OrderItem {
+  id       Int @id @default(autoincrement())
+  quantity Int
+
+  // Snapshot del producto
+  productName String
+  productSku  String
+  variantName String?
+  unitPrice   Float
+  totalPrice  Float
+
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  variantId String?
+
+  @@map("order_items")
+}
+
+// ============================================
+// ANALYTICS Y EVENTOS
+// ============================================
+
+model ProductView {
+  id Int @id @default(autoincrement())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  // Usuario o sesión
+  userId    Int?
+  sessionId String
+
+  // Metadata
+  source  String? // página de origen
+  device  String?
+  country String?
+
+  createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@map("product_views")
+}
+
+model ProductInquiry {
+  id Int @id @default(autoincrement())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  // Canal
+  channel InquiryChannel
+  contact String // teléfono/email
+
+  // Mensaje
+  message String? @db.Text
+
+  // Estado
+  isResponded Boolean   @default(false)
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@map("product_inquiries")
+}
+
+enum InquiryChannel {
+  WHATSAPP
+  EMAIL
+  PHONE
+  FORM
+}
+
+// ============================================
+// LOG DE CAMBIOS DE PRODUCTOS
+// ============================================
+
+model ProductLog {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  userId    Int?
+  action    String   // create, update, delete, etc.
+  data      Json?    // Datos adicionales del cambio
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([productId, createdAt])
+  @@map("product_logs")
+}
+
+// ============================================
+// MONETIZACIÓN, CRÉDITOS Y TRABAJOS DE IA 3D
+// ============================================
+
+enum SubscriptionTier {
+  BRONZE
+  SILVER
+  GOLD
+}
+
+enum AI3DJobStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCEEDED
+  FAILED
+}
+
+enum CreditPurchaseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+model AI3DJob {
+  id            String        @id @default(uuid())
+  storeId       Int
+  store         Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId     Int
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId     String?
+  variant       ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  
+  imageUrl      String        @db.Text
+  imageUrls     String[]
+  provider      String        @default("meshy") // "meshy" | "tripo"
+  providerJobId String?       // ID devuelto por la API externa (Meshy / Tripo)
+  status        AI3DJobStatus @default(PENDING)
+  creditsUsed   Int           @default(0)
+  errorMessage  String?
+  
+  glbUrl        String?       @db.Text
+  usdzUrl       String?       @db.Text
+  metadata      Json?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Índices para optimizar las consultas del Dashboard B2B y workers asíncronos
+  @@index([storeId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([status])
+  @@map("ai_3d_jobs")
+}
+
+model CreditPurchase {
+  id             String               @id @default(uuid())
+  storeId        Int
+  store          Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  amount         Float                // Importe (Float para mantener consistencia con Order/Variant)
+  creditsAwarded Int                  // Cantidad de créditos comprados
+  status         CreditPurchaseStatus @default(PENDING)
+  paymentGateway String               @default("MERCADO_PAGO")
+  gatewayRef     String?              // ID de preferencia o cobro de Mercado Pago
+  
+  createdAt      DateTime             @default(now()) // Asignado automáticamente
+  updatedAt      DateTime             @updatedAt
+
+  @@index([storeId])
+  @@index([status])
+  @@map("credit_purchases")
+}

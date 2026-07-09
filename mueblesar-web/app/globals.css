@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+:root {
+  /* ============================================
+     PALETA DE COLORES AMOBLY - VERSIÓN 2024
+     ============================================ */
+  
+  /* Primario - Azul principal */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-200: #bfdbfe;
+  --primary-300: #93c5fd;
+  --primary-400: #60a5fa;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;   /* Color principal */
+  --primary-700: #1d4ed8;   /* Hover */
+  --primary-800: #1e40af;   /* Active */
+  --primary-900: #1e3a8a;
+  
+  /* Éxito/Positivo - Verde */
+  --success-50: #f0fdf4;
+  --success-100: #dcfce7;
+  --success-500: #22c55e;
+  --success-600: #16a34a;   /* Envío gratis, disponible */
+  --success-700: #15803d;
+  
+  /* Advertencia/Ofertas - Naranja */
+  --warning-50: #fff7ed;
+  --warning-100: #ffedd5;
+  --warning-500: #f97316;
+  --warning-600: #ea580c;   /* Ofertas, badges */
+  
+  /* Error - Rojo */
+  --error-50: #fef2f2;
+  --error-500: #ef4444;
+  --error-600: #dc2626;
+  
+  /* Grises - Textos y fondos */
+  --gray-50: #f8fafc;       /* Fondo de cards */
+  --gray-100: #f1f5f9;      /* Fondo de página */
+  --gray-200: #e2e8f0;      /* Bordes */
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;      /* Texto placeholder */
+  --gray-500: #64748b;      /* Texto secundario */
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;      /* Texto principal */
+  
+  /* Especiales */
+  --whatsapp: #25d366;
+  --white: #ffffff;
+  --black: #000000;
+  
+  /* Legacy - mantener compatibilidad */
+  --color-primary: #2563eb;
+  --color-primary-600: #1d4ed8;
+  --color-primary-700: #1e40af;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-accent: #f97316;
+  --color-secondary: #f97316;
+  --color-whatsapp: #25d366;
+  --color-dark: #0f172a;
+}
+
+@theme inline {
+  --color-primary: var(--primary-600);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-secondary: var(--warning-500);
+  --color-whatsapp: var(--whatsapp);
+  --color-dark: var(--gray-900);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background: var(--gray-100);
+  color: var(--gray-900);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+html {
+  font-size: 100%;
+}
+
+/* ============================================
+   UTILIDADES GLOBALES
+   ============================================ */
+
+/* Safe area padding for mobile devices with notch */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Focus visible styles */
+*:focus-visible {
+  outline: 2px solid var(--primary-600);
+  outline-offset: 2px;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection color */
+::selection {
+  background-color: var(--primary-100);
+  color: var(--primary-900);
+}
+
+/* ============================================
+   ANIMACIONES
+   ============================================ */
+
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-in {
+  animation-duration: 300ms;
+  animation-fill-mode: both;
+}
+
+.slide-in-from-top-2 {
+  animation-name: slideInFromTop;
+}
+
+.fade-in {
+  animation-name: fadeIn;
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

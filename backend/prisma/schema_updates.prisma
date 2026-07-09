@@ -1,0 +1,13 @@
+// Actualizaciones para el modelo Store - Catálogo Compartible
+
+// Campos adicionales a agregar al modelo Store:
+// - whatsappNumber: String? (número específico para WhatsApp)
+// - phone: String? (teléfono general)
+// - email: String? (email de contacto)
+// - website: String? (sitio web)
+// - city: String? (ciudad)
+// - province: String? (provincia/estado)
+// - country: String? @default("Argentina")
+// - isActive: Boolean @default(true) (para desactivar tiendas)
+// - socialInstagram: String?
+// - socialFacebook: String?

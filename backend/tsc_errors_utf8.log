@@ -1,0 +1,67 @@
+﻿src/routes/adminOrders.ts(42,70): error TS2353: Object literal may only specify known properties, and 'imageUrl' does not exist in type 'ProductSelect<DefaultArgs>'.
+src/routes/adminOrders.ts(66,22): error TS2322: Type 'number' is not assignable to type 'string'.
+src/routes/adminOrders.ts(70,70): error TS2353: Object literal may only specify known properties, and 'imageUrl' does not exist in type 'ProductSelect<DefaultArgs>'.
+src/routes/adminOrders.ts(110,67): error TS2322: Type 'number' is not assignable to type 'string'.
+src/routes/adminOrders.ts(117,22): error TS2322: Type 'number' is not assignable to type 'string'.
+src/routes/adminOrders.ts(122,70): error TS2353: Object literal may only specify known properties, and 'imageUrl' does not exist in type 'ProductSelect<DefaultArgs>'.
+src/routes/adminSettings.ts(14,32): error TS2339: Property 'appSetting' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/routes/adminSettings.ts(69,29): error TS2339: Property 'appSetting' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/routes/adminStats.ts(25,14): error TS2339: Property 'arView' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/routes/adminStats.ts(26,14): error TS2339: Property 'arView' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/routes/adminStats.ts(34,28): error TS2615: Type of property 'AND' circularly references itself in mapped type '{ [K in keyof { AND?: OrderItemScalarWhereWithAggregatesInput | OrderItemScalarWhereWithAggregatesInput[]; ... 11 more ...; variantId?: string | StringNullableWithAggregatesFilter<...>; }]: Or<...> extends 1 ? { ...; }[K] extends infer TK ? GetHavingFields<...> : never : {} extends FieldPaths<...> ? never : K; }'.
+src/routes/adminStats.ts(34,28): error TS2615: Type of property 'NOT' circularly references itself in mapped type '{ [K in keyof { AND?: OrderItemScalarWhereWithAggregatesInput | OrderItemScalarWhereWithAggregatesInput[]; ... 11 more ...; variantId?: string | StringNullableWithAggregatesFilter<...>; }]: Or<...> extends 1 ? { ...; }[K] extends infer TK ? GetHavingFields<...> : never : {} extends FieldPaths<...> ? never : K; }'.
+src/routes/adminStats.ts(34,28): error TS2615: Type of property 'OR' circularly references itself in mapped type '{ [K in keyof { AND?: OrderItemScalarWhereWithAggregatesInput | OrderItemScalarWhereWithAggregatesInput[]; ... 11 more ...; variantId?: string | StringNullableWithAggregatesFilter<...>; }]: Or<...> extends 1 ? { ...; }[K] extends infer TK ? GetHavingFields<...> : never : {} extends FieldPaths<...> ? never : K; }'.
+src/routes/adminStats.ts(42,32): error TS2339: Property 'arView' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/routes/adminStats.ts(82,9): error TS2353: Object literal may only specify known properties, and 'stockQty' does not exist in type 'ProductWhereInput'.
+src/routes/adminStats.ts(84,18): error TS2353: Object literal may only specify known properties, and 'stockQty' does not exist in type 'ProductOrderByWithRelationInput | ProductOrderByWithRelationInput[]'.
+src/routes/adminStats.ts(101,21): error TS2339: Property 'stockQty' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.
+src/routes/adminStats.ts(102,22): error TS2551: Property 'store' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'. Did you mean 'storeId'?
+src/routes/arRedirect.ts(25,37): error TS2353: Object literal may only specify known properties, and 'arUrl' does not exist in type 'ProductSelect<DefaultArgs>'.
+src/routes/arRedirect.ts(28,29): error TS2339: Property 'glbUrl' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.
+src/routes/arRedirect.ts(28,48): error TS2339: Property 'arUrl' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.
+src/routes/arRedirect.ts(33,26): error TS2339: Property 'glbUrl' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.
+src/routes/arRedirect.ts(33,44): error TS2339: Property 'arUrl' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.
+src/routes/arRedirect.ts(34,27): error TS2339: Property 'usdzUrl' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.
+src/routes/catalog.ts(110,33): error TS2339: Property 'whatsappNumber' does not exist on type '{ description: string; name: string; id: number; slug: string; isActive: boolean; createdAt: Date; updatedAt: Date; logoUrl: string; bannerUrl: string; email: string; phone: string; whatsapp: string; ... 10 more ...; ownerId: number; }'.
+src/routes/catalog.ts(117,26): error TS2339: Property 'website' does not exist on type '{ description: string; name: string; id: number; slug: string; isActive: boolean; createdAt: Date; updatedAt: Date; logoUrl: string; bannerUrl: string; email: string; phone: string; whatsapp: string; ... 10 more ...; ownerId: number; }'.
+src/routes/catalog.ts(118,34): error TS2339: Property 'socialInstagram' does not exist on type '{ description: string; name: string; id: number; slug: string; isActive: boolean; createdAt: Date; updatedAt: Date; logoUrl: string; bannerUrl: string; email: string; phone: string; whatsapp: string; ... 10 more ...; ownerId: number; }'.
+src/routes/catalog.ts(119,33): error TS2339: Property 'socialFacebook' does not exist on type '{ description: string; name: string; id: number; slug: string; isActive: boolean; createdAt: Date; updatedAt: Date; logoUrl: string; bannerUrl: string; email: string; phone: string; whatsapp: string; ... 10 more ...; ownerId: number; }'.
+src/routes/events.ts(2,10): error TS2305: Module '"@prisma/client"' has no exported member 'ArSource'.
+src/routes/events.ts(31,18): error TS2339: Property 'arView' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/routes/stores.ts(73,22): error TS2353: Object literal may only specify known properties, and 'images' does not exist in type 'ProductInclude<DefaultArgs>'.
+src/routes/stores.ts(81,46): error TS2339: Property 'products' does not exist on type '{ description: string; name: string; id: number; slug: string; isActive: boolean; createdAt: Date; updatedAt: Date; logoUrl: string; bannerUrl: string; email: string; phone: string; whatsapp: string; ... 10 more ...; ownerId: number; }'.
+src/services/AI3DService.ts(49,17): error TS2353: Object literal may only specify known properties, and 'aiCreditsLimit' does not exist in type 'StoreSelect<DefaultArgs>'.
+src/services/AI3DService.ts(249,9): error TS2353: Object literal may only specify known properties, and 'arUrl' does not exist in type '(Without<ProductUpdateInput, ProductUncheckedUpdateInput> & ProductUncheckedUpdateInput) | (Without<...> & ProductUpdateInput)'.
+src/services/AuthService.ts(94,13): error TS2322: Type 'boolean' is not assignable to type 'string | Date'.
+src/services/AuthService.ts(120,9): error TS2322: Type 'boolean' is not assignable to type 'string | Date'.
+src/services/AuthService.ts(152,11): error TS2322: Type 'boolean' is not assignable to type 'string | Date'.
+src/services/AuthService.ts(193,44): error TS2339: Property 'emailVerificationToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/AuthService.ts(205,15): error TS2322: Type 'boolean' is not assignable to type 'string | Date | NullableDateTimeFieldUpdateOperationsInput'.
+src/services/AuthService.ts(209,18): error TS2339: Property 'emailVerificationToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/AuthService.ts(249,18): error TS2551: Property 'passwordResetToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'. Did you mean 'passwordReset'?
+src/services/AuthService.ts(258,18): error TS2551: Property 'passwordResetToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'. Did you mean 'passwordReset'?
+src/services/AuthService.ts(272,37): error TS2551: Property 'passwordResetToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'. Did you mean 'passwordReset'?
+src/services/AuthService.ts(287,14): error TS2551: Property 'passwordResetToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'. Did you mean 'passwordReset'?
+src/services/AuthService.ts(325,18): error TS2339: Property 'emailVerificationToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/AuthService.ts(330,18): error TS2339: Property 'emailVerificationToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/CatalogService.ts(269,9): error TS2353: Object literal may only specify known properties, and 'inStock' does not exist in type 'ProductWhereInput'.
+src/services/ProductService.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'Role'.
+src/services/ProductService.ts(31,23): error TS2304: Cannot find name 'UserRole'.
+src/services/ProductService.ts(40,23): error TS2304: Cannot find name 'UserRole'.
+src/services/ProductService.ts(170,23): error TS2304: Cannot find name 'UserRole'.
+src/services/ProductService.ts(203,18): error TS2339: Property 'productImage' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ProductService.ts(218,14): error TS2339: Property 'productImage' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ProductService.ts(219,14): error TS2339: Property 'productImage' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ProductService.ts(245,23): error TS2304: Cannot find name 'UserRole'.
+src/services/ProductService.ts(283,22): error TS2339: Property 'productImage' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ProductService.ts(301,14): error TS2339: Property 'productImage' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ProductService.ts(303,14): error TS2339: Property 'arView' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/services/ProductService.ts(360,23): error TS2304: Cannot find name 'UserRole'.
+src/services/ProductService.ts(369,16): error TS2339: Property 'productImage' does not exist on type 'TransactionClient'.
+src/services/ProductService.ts(399,23): error TS2304: Cannot find name 'UserRole'.
+src/services/ProductService.ts(418,16): error TS2339: Property 'productImage' does not exist on type 'TransactionClient'.
+src/services/ProductService.ts(420,18): error TS2339: Property 'productImage' does not exist on type 'TransactionClient'.
+src/services/ProductService.ts(503,33): error TS2304: Cannot find name 'UserRole'.
+src/services/ProductService.ts(511,9): error TS2353: Object literal may only specify known properties, and 'images' does not exist in type 'ProductInclude<DefaultArgs>'.
+src/services/ProductService.ts(518,19): error TS2339: Property 'imageUrl' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.
+src/services/ProductService.ts(518,33): error TS2339: Property 'images' does not exist on type '{ category: string; room: string; style: string; tags: string[]; description: string; name: string; id: number; sku: string; slug: string; isActive: boolean; isFeatured: boolean; subcategory: string; metaTitle: string; ... 14 more ...; updatedAt: Date; }'.

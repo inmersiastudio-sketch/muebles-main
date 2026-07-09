@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.local
+dist
+
+# Scratch / debug output files
+temp-query.ts
+docs.js
+docs_output.txt
+docs_output_utf8.txt
+result.txt
+result-utf8.json
+ts_errors.txt
+ts_errors_utf8.txt
