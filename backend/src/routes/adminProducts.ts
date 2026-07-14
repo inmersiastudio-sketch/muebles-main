@@ -1,10 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { z } from 'zod';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { requireAuth, requireRole } from '../lib/auth.js';
 
 const router = Router();
+
+router.use(requireAuth, requireRole([UserRole.SUPER_ADMIN, UserRole.STORE_OWNER]));
 
 // ============================================
 // SCHEMAS ZOD VALIDACIÓN

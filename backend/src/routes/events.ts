@@ -1,45 +1,80 @@
-import express from "express";
-import { prisma } from "../lib/prisma.js";
-import { rateLimit } from "../middleware/rateLimit.js";
+import { randomUUID } from 'node:crypto';
+import { Router } from 'express';
+import { type Prisma } from '@prisma/client';
+import { z } from 'zod';
+import { Errors } from '../errors/AppError.js';
+import { prisma } from '../lib/prisma.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { rateLimit } from '../middleware/rateLimit.js';
 
-const router = express.Router();
+const router = Router();
 
 const arViewLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 120,
-  message: "Too many AR events, slow down",
+  max: 60,
+  message: 'Too many AR events, slow down',
 });
 
-router.post("/ar-view", arViewLimiter, async (req, res) => {
-  const { productId, slug, source } = req.body || {};
-
-  if (!productId && !slug) {
-    return res.status(400).json({ error: "productId or slug required" });
-  }
-
-  try {
-    const product = await prisma.product.findFirst({
-      where: productId ? { id: Number(productId) } : { slug },
-      select: { id: true, storeId: true },
+const ArViewSchema = z.object({
+  productId: z.coerce.number().int().positive().optional(),
+  slug: z.string().trim().min(1).max(180).optional(),
+  source: z.string().trim().min(1).max(80).optional(),
+  sessionId: z.string().trim().min(8).max(128).optional(),
+  device: z.string().trim().min(1).max(80).optional(),
+  country: z.string().trim().min(2).max(80).optional(),
+}).superRefine((event, context) => {
+  if (!event.productId && !event.slug) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['productId'],
+      message: 'productId or slug is required',
     });
-
-    if (!product) return res.status(404).json({ error: "Product not found" });
-
-    const src = source?.toString().toUpperCase() || "UNKNOWN";
-
-    await prisma.productView.create({
-      data: {
-        productId: product.id,
-        sessionId: "ar-view-" + Date.now().toString(),
-        source: src,
-      },
-    });
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("ar-view error", err);
-    res.status(500).json({ error: "Cannot save ar-view" });
   }
 });
+
+/**
+ * POST /api/events/ar-view
+ * Records a validated AR product view without trusting a client-provided store id.
+ */
+router.post('/ar-view', arViewLimiter, asyncHandler(async (req, res) => {
+  const event = ArViewSchema.parse(req.body);
+  const where: Prisma.ProductWhereInput = {
+    isActive: true,
+    ...(event.productId ? { id: event.productId } : {}),
+    ...(event.slug ? { slug: event.slug } : {}),
+  };
+
+  const product = await prisma.product.findFirst({
+    where,
+    select: { id: true },
+  });
+
+  if (!product) {
+    throw Errors.notFound('Producto');
+  }
+
+  const created = await prisma.productView.create({
+    data: {
+      productId: product.id,
+      sessionId: event.sessionId ?? `ar-${randomUUID()}`,
+      source: event.source?.toUpperCase() ?? 'AR',
+      device: event.device,
+      country: event.country,
+    },
+    select: {
+      id: true,
+      productId: true,
+      createdAt: true,
+    },
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { event: created },
+    // Kept for callers of the original endpoint.
+    ok: true,
+    event: created,
+  });
+}));
 
 export default router;

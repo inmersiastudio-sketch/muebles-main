@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useCart } from "../../context/CartContext";
-import { Search, MessageSquare, User, Menu, X, Sofa, Heart } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, User, Menu, X, Sofa, Heart } from "lucide-react";
 
 const nav = [
   { href: "/productos", label: "Catálogo" },
@@ -16,10 +16,8 @@ export function Header() {
   const [isVisible, setIsVisible] = useState(true);
   const [isAtTop, setIsAtTop] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
   const lastScrollY = useRef(0);
-  const { items } = useCart();
-  const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const router = useRouter();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -45,7 +43,7 @@ export function Header() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/productos?q=${encodeURIComponent(searchQuery)}`;
+      router.push(`/buscar?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 
@@ -85,7 +83,15 @@ export function Header() {
             <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-[400px] mx-4">
               <div className="w-full relative">
                 <div className="flex items-center rounded-xl border border-[var(--gray-200)] bg-white px-3 py-2 shadow-sm focus-within:border-[var(--primary-600)] focus-within:ring-2 focus-within:ring-[var(--primary-100)] transition-all">
-                  <Search className="w-4 h-4 text-[var(--gray-400)] mr-2 flex-shrink-0" />
+                  <button
+                    type="submit"
+                    className="mr-2 flex shrink-0 items-center justify-center text-[var(--gray-400)] transition-colors hover:text-[var(--primary-600)] disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Buscar"
+                    title="Buscar"
+                    disabled={!searchQuery.trim()}
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
                   <input
                     type="text"
                     value={searchQuery}
@@ -106,20 +112,6 @@ export function Header() {
                 aria-label="Favoritos"
               >
                 <Heart className="w-[18px] h-[18px]" />
-              </Link>
-
-              {/* Cart - Desktop */}
-              <Link
-                href="/carrito"
-                className="hidden md:flex relative h-9 w-9 items-center justify-center rounded-full text-[var(--gray-500)] transition-colors hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
-                aria-label="Mis Consultas"
-              >
-                <MessageSquare className="w-[18px] h-[18px]" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary-600)] text-[9px] font-bold text-white">
-                    {cartCount > 9 ? "9+" : cartCount}
-                  </span>
-                )}
               </Link>
 
               {/* Mi Cuenta - Desktop */}
@@ -146,7 +138,15 @@ export function Header() {
           {/* Mobile Search - Más compacto */}
           <form onSubmit={handleSearch} className="pb-2 md:hidden">
             <div className="flex items-center rounded-full border border-[var(--gray-200)] bg-[var(--gray-50)] px-3 py-2 focus-within:bg-white focus-within:border-[var(--primary-600)] transition-all">
-              <Search className="w-4 h-4 text-[var(--gray-400)] mr-2 flex-shrink-0" />
+              <button
+                type="submit"
+                className="mr-2 flex shrink-0 items-center justify-center text-[var(--gray-400)] transition-colors hover:text-[var(--primary-600)] disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Buscar"
+                title="Buscar"
+                disabled={!searchQuery.trim()}
+              >
+                <Search className="h-4 w-4" />
+              </button>
               <input
                 type="text"
                 value={searchQuery}
@@ -215,21 +215,6 @@ export function Header() {
                 Mi cuenta
               </Link>
 
-              <Link
-                href="/carrito"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-between px-4 py-3 text-[15px] font-medium text-[var(--gray-700)] rounded-xl hover:bg-[var(--gray-50)] hover:text-[var(--primary-600)] transition-colors"
-              >
-                <span className="flex items-center gap-3">
-                  <MessageSquare className="w-5 h-5" />
-                  Mis Consultas
-                </span>
-                {cartCount > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--primary-600)] text-xs font-bold text-white">
-                    {cartCount}
-                  </span>
-                )}
-              </Link>
             </nav>
           </div>
         </div>

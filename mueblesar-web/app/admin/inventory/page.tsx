@@ -154,9 +154,9 @@ export default function InventoryPage() {
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/admin/products`, { credentials: "include" });
-      const data = await res.json().catch(() => []);
+      const data = await res.json().catch(() => ({ items: [] }));
       if (!res.ok) { setError((data as any)?.error || `Error ${res.status}`); return; }
-      setProducts(data);
+      setProducts(data?.items || []);
     } catch (err) { setError((err as Error).message); }
     finally { setLoading(false); }
   }, [user, apiBase]);
@@ -410,7 +410,7 @@ export default function InventoryPage() {
   };
 
   // ─── Form field helper ───
-  const F = (label: string, field: keyof FormState, opts?: { type?: string; placeholder?: string; span?: number; rows?: number }) => (
+  const F = (label: string, field: keyof FormState, opts?: { type?: string; placeholder?: string; span?: number; rows?: number; list?: string }) => (
     <div className={opts?.span ? `sm:col-span-${opts.span}` : ""} style={opts?.span ? { gridColumn: `span ${opts.span}` } : undefined}>
       <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">{label}</label>
       {opts?.rows ? (
@@ -426,6 +426,7 @@ export default function InventoryPage() {
           type={opts?.type || "text"}
           placeholder={opts?.placeholder}
           value={String(form[field] ?? "")}
+          list={opts?.list}
           onChange={(e) => {
             const val = e.target.value;
             setForm((f) => {
@@ -458,7 +459,7 @@ export default function InventoryPage() {
             <Upload size={16} /> Importar CSV
             <input type="file" accept="text/csv" className="hidden" ref={fileInputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }} />
           </label>
-          <button onClick={openCreate} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#0058a3] to-[#0070d6] text-white text-sm font-bold hover:from-[#004f93] hover:to-[#0058a3] transition-all shadow-lg shadow-[#0058a3]/25 active:scale-[0.98]">
+          <button onClick={openCreate} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#0058a3] text-white text-sm font-bold hover:bg-[#004f93] transition-all active:scale-[0.98]">
             <Plus size={18} /> Nuevo Producto
           </button>
         </div>
@@ -475,17 +476,23 @@ export default function InventoryPage() {
             <input type="text" placeholder="Buscar por nombre, ID, slug..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3] focus:ring-2 focus:ring-[#0058a3]/10 transition-all" />
           </div>
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-            className="appearance-none pl-3 pr-7 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:border-[#0058a3] cursor-pointer bg-white">
-            <option value="">Categoría</option>
-            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={filterInStock} onChange={(e) => setFilterInStock(e.target.value as any)}
-            className="appearance-none pl-3 pr-7 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:border-[#0058a3] cursor-pointer bg-white">
-            <option value="">Stock</option>
-            <option value="yes">En stock</option>
-            <option value="no">Agotado</option>
-          </select>
+          <div className="relative">
+            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:border-[#0058a3] cursor-pointer bg-white">
+              <option value="">Categoría</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select value={filterInStock} onChange={(e) => setFilterInStock(e.target.value as any)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:border-[#0058a3] cursor-pointer bg-white">
+              <option value="">Stock</option>
+              <option value="yes">En stock</option>
+              <option value="no">Agotado</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
         </div>
 
         {/* Tabs */}
@@ -818,12 +825,12 @@ export default function InventoryPage() {
               {F("Descripción", "description", { rows: 2, span: 2 })}
               <div className="grid grid-cols-3 gap-3">
                 {F("Precio", "price", { type: "number" })}
-                {F("Categoría", "category")}
-                {F("Ambiente", "room")}
+                {F("Categoría", "category", { list: "category-recommendations" })}
+                {F("Ambiente", "room", { list: "room-recommendations" })}
               </div>
               <div className="grid grid-cols-3 gap-3">
-                {F("Estilo", "style")}
-                {F("Color", "color")}
+                {F("Estilo", "style", { list: "style-recommendations" })}
+                {F("Color", "color", { list: "color-recommendations" })}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Stock</label>
                   <div className="flex items-center gap-2">
@@ -931,6 +938,60 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+
+      {/* Datalists de sugerencias */}
+      <datalist id="category-recommendations">
+        <option value="Sillas" />
+        <option value="Sillones" />
+        <option value="Mesas" />
+        <option value="Escritorios" />
+        <option value="Camas" />
+        <option value="Armarios" />
+        <option value="Cómodas" />
+        <option value="Mesas de luz" />
+        <option value="Sofás" />
+        <option value="Estanterías" />
+      </datalist>
+
+      <datalist id="room-recommendations">
+        <option value="Living" />
+        <option value="Comedor" />
+        <option value="Dormitorio" />
+        <option value="Oficina" />
+        <option value="Cocina" />
+        <option value="Exterior" />
+        <option value="Infantil" />
+      </datalist>
+
+      <datalist id="style-recommendations">
+        <option value="Moderno" />
+        <option value="Escandinavo" />
+        <option value="Rústico" />
+        <option value="Industrial" />
+        <option value="Minimalista" />
+        <option value="Clásico" />
+        <option value="Vintage" />
+      </datalist>
+
+      <datalist id="color-recommendations">
+        <option value="Rojo" />
+        <option value="Azul" />
+        <option value="Verde" />
+        <option value="Amarillo" />
+        <option value="Negro" />
+        <option value="Blanco" />
+        <option value="Gris" />
+        <option value="Beige" />
+        <option value="Marrón" />
+        <option value="Naranja" />
+        <option value="Rosa" />
+        <option value="Violeta" />
+        <option value="Roble" />
+        <option value="Wengue" />
+        <option value="Haya" />
+        <option value="Paraíso" />
+        <option value="Pino" />
+      </datalist>
     </div>
   );
 }

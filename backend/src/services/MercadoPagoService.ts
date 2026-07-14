@@ -39,6 +39,14 @@ const PLANS_CONFIG = {
 
 export type PlanType = keyof typeof PLANS_CONFIG;
 
+export const CREDIT_PACKAGES = {
+  'pack-bronze': { credits: 10, amount: 1500 },
+  'pack-silver': { credits: 50, amount: 6000 },
+  'pack-gold': { credits: 120, amount: 12000 },
+} as const;
+
+export type CreditPackageId = keyof typeof CREDIT_PACKAGES;
+
 /**
  * Webhook event types from MercadoPago
  */
@@ -221,9 +229,9 @@ export class MercadoPagoService {
    */
   async createCreditsPreference(
     storeId: number,
-    credits: number,
-    amount: number
+    packageId: CreditPackageId,
   ): Promise<{ initPoint: string; preferenceId: string; purchaseId: string }> {
+    const { credits, amount } = CREDIT_PACKAGES[packageId];
     // 1. Verify store exists
     const store = await prisma.store.findUnique({
       where: { id: storeId },
@@ -384,16 +392,36 @@ export class MercadoPagoService {
           return;
         }
 
+        const paymentAmount = Number(paymentData.transaction_amount ?? 0);
+        const matchesPurchase =
+          purchase.storeId === storeId &&
+          purchase.creditsAwarded === credits &&
+          Math.abs(purchase.amount - paymentAmount) < 0.01 &&
+          paymentData.currency_id === 'ARS';
+
+        if (!matchesPurchase) {
+          console.warn('Credit payment did not match its pending purchase:', {
+            paymentId,
+            purchaseId,
+            storeId,
+            credits,
+            paymentAmount,
+          });
+          return;
+        }
+
         if (status === 'approved') {
           // Acreditación transaccional
           await prisma.$transaction(async (tx) => {
-            await tx.creditPurchase.update({
-              where: { id: purchaseId },
+            const transition = await tx.creditPurchase.updateMany({
+              where: { id: purchaseId, status: CreditPurchaseStatus.PENDING },
               data: {
                 status: CreditPurchaseStatus.APPROVED,
                 gatewayRef: paymentId,
               },
             });
+
+            if (transition.count !== 1) return;
 
             await tx.store.update({
               where: { id: storeId },

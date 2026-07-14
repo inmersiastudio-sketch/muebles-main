@@ -38,7 +38,11 @@ router.post('/register', asyncHandler(authController.register.bind(authControlle
 
 router.post('/register-store', registerLimiter, asyncHandler(authController.registerStore.bind(authController)));
 
-router.get('/verify-email', asyncHandler(authController.verifyEmail.bind(authController)));
+// Email scanners and link previewers routinely follow GET links. Keep GET side-effect
+// free and let the verification page confirm the token with a POST.
+router.get('/verify-email', asyncHandler(authController.redirectEmailVerification.bind(authController)));
+
+router.post('/verify-email', asyncHandler(authController.verifyEmail.bind(authController)));
 
 router.post('/resend-verification', registerLimiter, asyncHandler(authController.resendVerification.bind(authController)));
 

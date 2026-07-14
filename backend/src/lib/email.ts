@@ -4,12 +4,26 @@ import { env } from "../config/env.js";
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 const FROM_EMAIL = env.EMAIL_FROM || "Amobly <onboarding@resend.dev>";
 
-export async function sendEmail(to: string, subject: string, html: string) {
+export type EmailDeliveryResult =
+  | { ok: true; id?: string }
+  | { ok: false; error: string; reason: "not_configured" | "provider_error" };
+
+export function isEmailDeliveryConfigured(): boolean {
+  return resend !== null;
+}
+
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+): Promise<EmailDeliveryResult> {
   if (!resend) {
-    console.log(`[email] (no RESEND_API_KEY) To: ${to}`);
-    console.log(`[email] Subject: ${subject}`);
-    console.log(`[email] Body:\n${html}`);
-    return { ok: true, dev: true };
+    console.error("[email] Delivery skipped: RESEND_API_KEY is not configured.");
+    return {
+      ok: false,
+      reason: "not_configured",
+      error: "El servicio de correo no está configurado.",
+    };
   }
 
   try {
@@ -22,14 +36,18 @@ export async function sendEmail(to: string, subject: string, html: string) {
 
     if (error) {
       console.error("[email] Resend error:", error);
-      return { ok: false, error: error.message };
+      return { ok: false, reason: "provider_error", error: error.message };
     }
 
     console.log(`[email] ✅ Sent to ${to} (id: ${data?.id})`);
     return { ok: true, id: data?.id };
   } catch (err) {
     console.error("[email] Failed:", err);
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown" };
+    return {
+      ok: false,
+      reason: "provider_error",
+      error: err instanceof Error ? err.message : "Unknown",
+    };
   }
 }
 

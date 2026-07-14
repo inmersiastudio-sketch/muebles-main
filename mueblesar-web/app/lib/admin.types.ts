@@ -125,3 +125,106 @@ export const slugify = (input: string) => {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 };
+
+export type InquiryLifecycleStatus = "NEW" | "VIEWED" | "CONTACTED" | "CLOSED";
+
+export type InquiryResult =
+  | "SOLD"
+  | "LOST_PRICE"
+  | "LOST_STOCK"
+  | "LOST_NO_REPLY"
+  | "LOST_OTHER"
+  | "PENDING";
+
+export type AdminInquiry = {
+  id: number;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string | null;
+  message?: string | null;
+  status: InquiryLifecycleStatus;
+  result?: InquiryResult | null;
+  resultNote?: string | null;
+  finalAmount?: number | string | null;
+  createdAt: string;
+  product?: {
+    id: number;
+    name: string;
+    slug: string;
+    media?: { url: string }[];
+  } | null;
+};
+
+export type InquiryListResponse = {
+  inquiries: AdminInquiry[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type InquiryStatsResponse = {
+  total: number;
+  byStatus: Partial<Record<InquiryLifecycleStatus, number>>;
+  byResult: Partial<Record<InquiryResult, number>>;
+  today: number;
+  thisWeek: number;
+  sales: {
+    count: number;
+    totalAmount: number | string;
+  };
+};
+
+export type StoreSettings = {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  whatsapp?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  country?: string | null;
+  socialInstagram?: string | null;
+  socialFacebook?: string | null;
+};
+
+export type AdminStore = {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  city?: string | null;
+  province?: string | null;
+  isActive?: boolean;
+  isVerified?: boolean;
+  _count?: { products?: number };
+};
+
+export type SubscriptionPlan = {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  credits: number;
+  maxProducts: number;
+  features: string[];
+};
+
+export type SubscriptionStatus = {
+  status: string;
+  planType: string | null;
+  creditsLimit: number;
+  creditsUsed: number;
+  creditsRemaining: number;
+  nextPaymentDate: string | null;
+  ai3dCredits: number;
+  ai3dUsed: number;
+};

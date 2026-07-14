@@ -10,9 +10,11 @@ import {
   publicUser,
 } from '../lib/auth.js';
 import {
+  isEmailDeliveryConfigured,
   sendPasswordResetEmail,
   sendVerificationEmail,
   sendWelcomeEmail,
+  type EmailDeliveryResult,
 } from '../lib/email.js';
 import type {
   AuthUser,
@@ -128,6 +130,8 @@ export class AuthService {
    * Register a new store with owner
    */
   async registerStore(data: RegisterStoreInput): Promise<RegistrationResult> {
+    this.ensureEmailDeliveryAvailable();
+
     // Check if email already exists
     const existing = await prisma.user.findUnique({
       where: { email: data.email },
@@ -167,7 +171,25 @@ export class AuthService {
       return { store, user };
     });
 
-    await this.createAndSendVerificationToken(result.user.id, result.user.email, result.user.name);
+    const delivery = await this.createAndSendVerificationToken(
+      result.user.id,
+      result.user.email,
+      result.user.name,
+    );
+
+    if (!delivery.ok) {
+      return {
+        user: publicUser(result.user),
+        store: {
+          id: result.store.id,
+          name: result.store.name,
+          slug: result.store.slug,
+        },
+        requiresVerification: true,
+        verificationEmailSent: false,
+        message: 'La cuenta fue creada, pero no pudimos enviar el email de verificación. Usá el reenvío cuando el servicio esté disponible.',
+      };
+    }
 
     return {
       user: publicUser(result.user),
@@ -177,6 +199,7 @@ export class AuthService {
         slug: result.store.slug,
       },
       requiresVerification: true,
+      verificationEmailSent: true,
       message: 'Registro exitoso. Revisá tu email para verificar tu cuenta.',
     };
   }
@@ -216,6 +239,8 @@ export class AuthService {
    * Resend verification email
    */
   async resendVerification(email: string): Promise<void> {
+    this.ensureEmailDeliveryAvailable();
+
     const user = await prisma.user.findUnique({ where: { email } });
 
     // Always succeed to prevent email enumeration
@@ -223,13 +248,20 @@ export class AuthService {
       return;
     }
 
-    await this.createAndSendVerificationToken(user.id, user.email, user.name);
+    const delivery = await this.createAndSendVerificationToken(user.id, user.email, user.name);
+    if (!delivery.ok) {
+      throw Errors.emailDeliveryUnavailable(
+        'No pudimos enviar el email de verificación. Intentá nuevamente más tarde.',
+      );
+    }
   }
 
   /**
    * Request password reset
    */
   async forgotPassword(email: string): Promise<void> {
+    this.ensureEmailDeliveryAvailable();
+
     const user = await prisma.user.findUnique({ where: { email } });
 
     // Always succeed to prevent email enumeration
@@ -248,7 +280,12 @@ export class AuthService {
     // Send email
     const siteUrl = env.SITE_URL || 'http://localhost:3000';
     const resetUrl = `${siteUrl}/resetear-contrasena?token=${token}`;
-    await sendPasswordResetEmail(user.email, resetUrl, user.name ?? undefined);
+    const delivery = await sendPasswordResetEmail(user.email, resetUrl, user.name ?? undefined);
+    if (!delivery.ok) {
+      throw Errors.emailDeliveryUnavailable(
+        'No pudimos enviar el email de recuperación. Intentá nuevamente más tarde.',
+      );
+    }
   }
 
   /**
@@ -302,11 +339,19 @@ export class AuthService {
   /**
    * Helper: Create and send verification token
    */
+  private ensureEmailDeliveryAvailable(): void {
+    if (!isEmailDeliveryConfigured()) {
+      throw Errors.emailDeliveryUnavailable(
+        'El servicio de correo no está configurado. No podemos enviar el email de verificación todavía.',
+      );
+    }
+  }
+
   private async createAndSendVerificationToken(
     userId: number,
     email: string,
     name?: string | null
-  ): Promise<string> {
+  ): Promise<EmailDeliveryResult> {
     await prisma.emailVerificationToken.deleteMany({ where: { userId } });
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -318,9 +363,7 @@ export class AuthService {
 
     const siteUrl = env.SITE_URL || 'http://localhost:3000';
     const verifyUrl = `${siteUrl}/verificar-email?token=${token}`;
-    await sendVerificationEmail(email, verifyUrl, name ?? undefined);
-
-    return token;
+    return sendVerificationEmail(email, verifyUrl, name ?? undefined);
   }
 }
 

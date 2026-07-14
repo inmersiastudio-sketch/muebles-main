@@ -67,12 +67,12 @@ export function ProductCard({ product }: Props) {
           </div>
         )}
 
-        {/* Badge de envío gratis */}
+        {/* Badge de consulta de envío */}
         {product.price > 50000 && (
           <div className="absolute top-3 right-12">
             <span className="inline-flex items-center gap-1 bg-[var(--success-600)] text-white px-2 py-1 rounded-lg text-[10px] font-semibold">
               <Truck className="w-3 h-3" />
-              Gratis
+              Envío
             </span>
           </div>
         )}
@@ -137,7 +137,7 @@ export function ProductCard({ product }: Props) {
             </span>
             {product.price > 50000 && (
               <span className="text-[10px] text-[var(--success-600)] font-medium">
-                Envío gratis
+                Consultar envío
               </span>
             )}
           </div>
@@ -152,7 +152,7 @@ export function ProductCard({ product }: Props) {
               imageUrl: product.imageUrl || null,
               storeName: product.store?.name || "Sin tienda",
               storeSlug: product.store?.slug || "",
-              storeWhatsapp: null,
+              storeWhatsapp: product.store?.whatsapp || null,
             }}
             className="w-full !h-8 !rounded-lg !bg-[var(--primary-600)] !text-white !text-xs !font-medium hover:!bg-[var(--primary-700)] active:!scale-[0.98] transition-all"
           />

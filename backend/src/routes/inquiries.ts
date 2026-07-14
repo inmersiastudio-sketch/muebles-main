@@ -1,461 +1,638 @@
-import { Router, Request, Response } from 'express';
+import { Router, type Response } from 'express';
+import {
+  InquiryResult,
+  InquiryStatus,
+  type Prisma,
+  UserRole,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { z } from 'zod';
+import {
+  CloseInquirySchema,
+  CreateInquirySchema,
+  InquiryIdParamSchema,
+  InquiryListQuerySchema,
+  InquiryStatsQuerySchema,
+  UpdateInquirySchema,
+  closureInquiryResults,
+  type CloseInquiryInput,
+  type InquiryListQuery,
+  type UpdateInquiryInput,
+} from '../schemas/inquiry.js';
+import {
+  requireAuth,
+  requireRole,
+  type AuthenticatedRequest,
+  type AuthUser,
+} from '../lib/auth.js';
 import { Errors } from '../errors/AppError.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { getInquiryOperationalStats } from '../services/InquiryAnalyticsService.js';
 
 const router = Router();
 
-// ============================================
-// SCHEMAS DE VALIDACIÓN
-// ============================================
+const OPEN_STATUSES = [
+  InquiryStatus.NEW,
+  InquiryStatus.VIEWED,
+  InquiryStatus.CONTACTED,
+];
 
-const CreateInquirySchema = z.object({
-  productId: z.number().int().positive(),
-  storeId: z.number().int().positive(),
-  customerName: z.string().min(1, 'El nombre es requerido'),
-  customerPhone: z.string().min(1, 'El teléfono es requerido'),
-  customerEmail: z.string().email().optional().nullable(),
-  variantId: z.string().optional().nullable(),
-  message: z.string().optional().nullable(),
-  productName: z.string().optional(), // Para mostrar en notificaciones
-  productPrice: z.number().optional(),
-});
+const LOSS_RESULTS = [
+  InquiryResult.LOST_PRICE,
+  InquiryResult.LOST_STOCK,
+  InquiryResult.LOST_NO_REPLY,
+  InquiryResult.LOST_OTHER,
+];
 
-const UpdateInquirySchema = z.object({
-  status: z.enum(['NEW', 'VIEWED', 'CONTACTED', 'CLOSED']).optional(),
-  result: z.enum([
-    'SOLD',
-    'LOST_PRICE',
-    'LOST_STOCK',
-    'LOST_NO_REPLY',
-    'LOST_OTHER',
-    'PENDING',
-  ]).optional().nullable(),
-  resultNote: z.string().optional().nullable(),
-  finalAmount: z.number().optional().nullable(),
-});
+const allowedTransitions: Record<InquiryStatus, readonly InquiryStatus[]> = {
+  [InquiryStatus.NEW]: [InquiryStatus.VIEWED, InquiryStatus.CONTACTED, InquiryStatus.CLOSED],
+  [InquiryStatus.VIEWED]: [InquiryStatus.CONTACTED, InquiryStatus.CLOSED],
+  [InquiryStatus.CONTACTED]: [InquiryStatus.CLOSED],
+  [InquiryStatus.CLOSED]: [],
+};
 
-// ============================================
-// ENDPOINTS PÚBLICOS (Clientes)
-// ============================================
+const inquiryListInclude = {
+  product: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      category: true,
+      media: {
+        where: { isPrimary: true },
+        take: 1,
+        select: { url: true },
+      },
+    },
+  },
+  variant: {
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      color: true,
+      size: true,
+      salePrice: true,
+    },
+  },
+  store: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+} satisfies Prisma.ProductInquiryInclude;
+
+const inquiryDetailInclude = {
+  product: {
+    include: {
+      media: {
+        where: { type: 'IMAGE' },
+        take: 5,
+        select: { url: true, isPrimary: true },
+      },
+      variants: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          color: true,
+          size: true,
+          salePrice: true,
+          stock: true,
+        },
+      },
+    },
+  },
+  variant: {
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      color: true,
+      size: true,
+      salePrice: true,
+      stock: true,
+    },
+  },
+  store: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      whatsapp: true,
+    },
+  },
+} satisfies Prisma.ProductInquiryInclude;
+
+type ApiSuccess<T> = {
+  success: true;
+  data: T;
+};
+
+function sendSuccess<T, TLegacy extends Record<string, unknown> = Record<string, never>>(
+  res: Response,
+  status: number,
+  data: T,
+  legacy?: TLegacy,
+) {
+  const response: ApiSuccess<T> & TLegacy = {
+    success: true,
+    data,
+    ...(legacy ?? ({} as TLegacy)),
+  };
+
+  return res.status(status).json(response);
+}
+
+function getAuthenticatedUser(req: AuthenticatedRequest): AuthUser {
+  if (!req.user) {
+    throw Errors.unauthorized();
+  }
+
+  return req.user;
+}
+
+function getStoreScope(user: AuthUser, requestedStoreId?: number): Prisma.ProductInquiryWhereInput {
+  if (user.role === UserRole.STORE_OWNER) {
+    if (!user.storeId) {
+      throw Errors.forbidden('No tienes una tienda asignada');
+    }
+
+    if (requestedStoreId && requestedStoreId !== user.storeId) {
+      throw Errors.forbidden('No puedes acceder a consultas de otra tienda');
+    }
+
+    return { storeId: user.storeId };
+  }
+
+  if (user.role === UserRole.SUPER_ADMIN) {
+    return requestedStoreId ? { storeId: requestedStoreId } : {};
+  }
+
+  throw Errors.forbidden('No tienes permisos para gestionar consultas');
+}
+
+function assertStatusTransition(currentStatus: InquiryStatus, nextStatus: InquiryStatus) {
+  if (currentStatus === nextStatus) {
+    return;
+  }
+
+  if (!allowedTransitions[currentStatus].includes(nextStatus)) {
+    throw Errors.conflict(`No se puede cambiar una consulta de ${currentStatus} a ${nextStatus}`);
+  }
+}
+
+function validateInquiryMutation(
+  existing: { status: InquiryStatus; result: InquiryResult | null; finalAmount: number | null },
+  update: UpdateInquiryInput,
+) {
+  const nextStatus = update.status ?? existing.status;
+  const nextResult = update.result === undefined ? existing.result : update.result;
+  const nextFinalAmount = update.finalAmount === undefined ? existing.finalAmount : update.finalAmount;
+
+  assertStatusTransition(existing.status, nextStatus);
+
+  if (nextStatus !== InquiryStatus.CLOSED) {
+    if (update.result !== undefined || update.finalAmount !== undefined) {
+      throw Errors.validation('El resultado y el monto final solo se registran al cerrar la consulta');
+    }
+    return;
+  }
+
+  const isFirstClose = existing.status !== InquiryStatus.CLOSED && nextStatus === InquiryStatus.CLOSED;
+  if (isFirstClose && (!nextResult || nextResult === InquiryResult.PENDING)) {
+    throw Errors.validation('El cierre requiere un resultado final');
+  }
+
+  if (update.result !== undefined && (!nextResult || nextResult === InquiryResult.PENDING)) {
+    throw Errors.validation('PENDING no es un resultado valido para una consulta cerrada');
+  }
+
+  const isChangingCommercialOutcome = update.result !== undefined || update.finalAmount !== undefined || isFirstClose;
+  if (!isChangingCommercialOutcome) {
+    return;
+  }
+
+  if (nextResult === InquiryResult.SOLD && (!nextFinalAmount || nextFinalAmount <= 0)) {
+    throw Errors.validation('Una venta cerrada requiere un monto final positivo');
+  }
+
+  if (nextResult && nextResult !== InquiryResult.SOLD && nextFinalAmount !== null) {
+    throw Errors.validation('Solo las consultas vendidas pueden tener un monto final');
+  }
+}
+
+function toUpdateData(
+  existing: { status: InquiryStatus },
+  update: UpdateInquiryInput,
+): Prisma.ProductInquiryUpdateInput {
+  const data: Prisma.ProductInquiryUpdateInput = {};
+
+  if (update.status) {
+    data.status = update.status;
+    if (existing.status !== InquiryStatus.CLOSED && update.status === InquiryStatus.CLOSED) {
+      data.closedAt = new Date();
+    }
+  }
+
+  if (update.result !== undefined) {
+    data.result = update.result;
+  }
+
+  if (update.resultNote !== undefined) {
+    data.resultNote = update.resultNote;
+  }
+
+  if (update.finalAmount !== undefined) {
+    data.finalAmount = update.finalAmount;
+  } else if (update.result !== undefined && update.result !== InquiryResult.SOLD) {
+    data.finalAmount = null;
+  }
+
+  return data;
+}
+
+function buildListWhere(
+  user: AuthUser,
+  query: InquiryListQuery,
+): Prisma.ProductInquiryWhereInput {
+  const filters: Prisma.ProductInquiryWhereInput[] = [getStoreScope(user, query.storeId)];
+
+  if (query.status && query.status !== 'all') {
+    if (query.status === 'pending') {
+      filters.push({ status: { in: OPEN_STATUSES } });
+    } else if (query.status === 'converted') {
+      filters.push({ status: InquiryStatus.CLOSED, result: InquiryResult.SOLD });
+    } else if (query.status === 'lost') {
+      filters.push({ status: InquiryStatus.CLOSED, result: { in: LOSS_RESULTS } });
+    } else {
+      filters.push({ status: query.status });
+    }
+  }
+
+  if (query.result) {
+    filters.push({ result: query.result });
+  }
+
+  if (query.productId) {
+    filters.push({ productId: query.productId });
+  }
+
+  if (query.variantId) {
+    filters.push({ variantId: query.variantId });
+  }
+
+  if (query.search) {
+    filters.push({
+      OR: [
+        { customerName: { contains: query.search, mode: 'insensitive' } },
+        { customerPhone: { contains: query.search, mode: 'insensitive' } },
+        { customerEmail: { contains: query.search, mode: 'insensitive' } },
+        { product: { name: { contains: query.search, mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  if (query.dateFrom || query.dateTo) {
+    filters.push({
+      createdAt: {
+        ...(query.dateFrom ? { gte: query.dateFrom } : {}),
+        ...(query.dateTo ? { lte: query.dateTo } : {}),
+      },
+    });
+  }
+
+  if (query.closedFrom || query.closedTo) {
+    filters.push({
+      closedAt: {
+        ...(query.closedFrom ? { gte: query.closedFrom } : {}),
+        ...(query.closedTo ? { lte: query.closedTo } : {}),
+      },
+    });
+  }
+
+  return filters.length === 1 ? filters[0] : { AND: filters };
+}
+
+function listOrderBy(query: InquiryListQuery): Prisma.ProductInquiryOrderByWithRelationInput {
+  if (query.sortBy === 'updatedAt') {
+    return { updatedAt: query.sortOrder };
+  }
+
+  if (query.sortBy === 'closedAt') {
+    return { closedAt: query.sortOrder };
+  }
+
+  return { createdAt: query.sortOrder };
+}
+
+function resolveCloseResult(input: CloseInquiryInput): InquiryResult {
+  if (input.result) {
+    if (!closureInquiryResults.includes(input.result as (typeof closureInquiryResults)[number])) {
+      throw Errors.validation('El resultado de cierre no es valido');
+    }
+    return input.result;
+  }
+
+  if (input.outcome === 'converted') {
+    return InquiryResult.SOLD;
+  }
+
+  switch (input.lossReason) {
+    case 'too_expensive':
+      return InquiryResult.LOST_PRICE;
+    case 'no_stock':
+      return InquiryResult.LOST_STOCK;
+    case 'no_response':
+      return InquiryResult.LOST_NO_REPLY;
+    default:
+      return InquiryResult.LOST_OTHER;
+  }
+}
 
 /**
  * POST /api/inquiries
- * Crear una nueva consulta (público, no requiere auth)
+ * Registers a customer inquiry. The product determines the target store.
  */
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
-    const data = CreateInquirySchema.parse(req.body);
+router.post('/', asyncHandler(async (req, res) => {
+  const data = CreateInquirySchema.parse(req.body);
 
-    // Verificar que el producto existe
-    const product = await prisma.product.findUnique({
-      where: { id: data.productId },
-      include: { store: true },
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+    select: {
+      id: true,
+      storeId: true,
+      isActive: true,
+      store: { select: { isActive: true } },
+    },
+  });
+
+  if (!product || !product.isActive || !product.store.isActive) {
+    throw Errors.notFound('Producto');
+  }
+
+  if (data.storeId && data.storeId !== product.storeId) {
+    throw Errors.validation('La tienda indicada no corresponde al producto');
+  }
+
+  if (data.variantId) {
+    const variant = await prisma.productVariant.findFirst({
+      where: { id: data.variantId, productId: product.id },
+      select: { id: true },
     });
 
-    if (!product || !product.isActive) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
+    if (!variant) {
+      throw Errors.validation('La variante no corresponde al producto');
     }
+  }
 
-    // Verificar que el storeId coincida con el del producto
-    if (product.storeId !== data.storeId) {
-      return res.status(400).json({ error: 'Tienda incorrecta' });
-    }
-
-    // Crear la consulta
-    const inquiry = await prisma.productInquiry.create({
+  const inquiry = await prisma.$transaction(async (tx) => {
+    const created = await tx.productInquiry.create({
       data: {
-        productId: data.productId,
-        storeId: data.storeId,
+        productId: product.id,
+        storeId: product.storeId,
         customerName: data.customerName,
         customerPhone: data.customerPhone,
         customerEmail: data.customerEmail,
         variantId: data.variantId,
         message: data.message,
-        status: 'NEW',
       },
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            media: {
-              where: { isPrimary: true },
-              take: 1,
-              select: { url: true },
-            },
-          },
-        },
-        store: {
-          select: {
-            id: true,
-            name: true,
-            whatsapp: true,
-          },
-        },
-      },
+      include: inquiryListInclude,
     });
 
-    // TODO: Enviar notificación a la mueblería (email, push, etc.)
-
-    res.status(201).json({
-      success: true,
-      inquiry,
+    await tx.product.update({
+      where: { id: product.id },
+      data: { inquiryCount: { increment: 1 } },
     });
-  })
-);
 
-// ============================================
-// ENDPOINTS PRIVADOS (Requieren auth de tienda)
-// ============================================
+    return created;
+  });
+
+  sendSuccess(res, 201, inquiry, { inquiry });
+}));
+
+// All remaining inquiry operations require a store operator or platform administrator.
+router.use(requireAuth, requireRole([UserRole.SUPER_ADMIN, UserRole.STORE_OWNER]));
 
 /**
  * GET /api/inquiries
- * Listar consultas de la tienda del usuario autenticado
+ * Lists inquiries within the authenticated user's authorized store scope.
  */
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({ error: 'No autenticado' });
-    }
+router.get('/', asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const user = getAuthenticatedUser(req);
+  const query = InquiryListQuerySchema.parse(req.query);
+  const where = buildListWhere(user, query);
+  const skip = (query.page - 1) * query.limit;
 
-    const storeId = user.storeId;
-    if (!storeId) {
-      return res.status(403).json({ error: 'No tienes una tienda asignada' });
-    }
+  const [inquiries, total] = await Promise.all([
+    prisma.productInquiry.findMany({
+      where,
+      include: inquiryListInclude,
+      orderBy: [listOrderBy(query), { id: 'desc' }],
+      skip,
+      take: query.limit,
+    }),
+    prisma.productInquiry.count({ where }),
+  ]);
 
-    // Query params
-    const status = req.query.status as string | undefined;
-    const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
-    const page = parseInt(req.query.page as string) || 1;
-    const skip = (page - 1) * limit;
+  const pagination = {
+    page: query.page,
+    limit: query.limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / query.limit)),
+  };
 
-    const where: any = { storeId };
-    if (status && ['NEW', 'VIEWED', 'CONTACTED', 'CLOSED'].includes(status)) {
-      where.status = status;
-    }
-
-    const [inquiries, total] = await Promise.all([
-      prisma.productInquiry.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              category: true,
-              media: {
-                where: { isPrimary: true },
-                take: 1,
-                select: { url: true },
-              },
-            },
-          },
-        },
-      }),
-      prisma.productInquiry.count({ where }),
-    ]);
-
-    res.json({
-      inquiries,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  })
-);
+  sendSuccess(res, 200, { inquiries, pagination }, { inquiries, pagination });
+}));
 
 /**
  * GET /api/inquiries/stats
- * Estadísticas de consultas para el dashboard
+ * Returns workload, funnel and revenue metrics for the authorized store scope.
  */
-router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
-    if (!user?.storeId) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
+router.get('/stats', asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const user = getAuthenticatedUser(req);
+  const query = InquiryStatsQuerySchema.parse(req.query);
+  const stats = await getInquiryOperationalStats(getStoreScope(user, query.storeId));
 
-    const storeId = user.storeId;
-
-    // Obtener estadísticas
-    const [
-      total,
-      byStatus,
-      byResult,
-      todayCount,
-      weekCount,
-    ] = await Promise.all([
-      prisma.productInquiry.count({ where: { storeId } }),
-      prisma.productInquiry.groupBy({
-        by: ['status'],
-        where: { storeId },
-        _count: { status: true },
-      }),
-      prisma.productInquiry.groupBy({
-        by: ['result'],
-        where: { storeId, status: 'CLOSED' },
-        _count: { result: true },
-      }),
-      prisma.productInquiry.count({
-        where: {
-          storeId,
-          createdAt: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          },
-        },
-      }),
-      prisma.productInquiry.count({
-        where: {
-          storeId,
-          createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          },
-        },
-      }),
-    ]);
-
-    // Calcular ventas totales
-    const sales = await prisma.productInquiry.aggregate({
-      where: {
-        storeId,
-        result: 'SOLD',
-      },
-      _sum: {
-        finalAmount: true,
-      },
-      _count: {
-        result: true,
-      },
-    });
-
-    res.json({
-      total,
-      byStatus: byStatus.reduce((acc: any, curr: any) => {
-        acc[curr.status] = curr._count.status;
-        return acc;
-      }, {}),
-      byResult: byResult.reduce((acc: any, curr: any) => {
-        acc[curr.result || 'PENDING'] = curr._count.result;
-        return acc;
-      }, {}),
-      today: todayCount,
-      thisWeek: weekCount,
-      sales: {
-        count: sales._count.result,
-        totalAmount: sales._sum.finalAmount || 0,
-      },
-    });
-  })
-);
+  sendSuccess(res, 200, stats, stats);
+}));
 
 /**
  * GET /api/inquiries/:id
- * Detalle de una consulta específica
+ * Returns the inquiry detail and marks a new inquiry as viewed.
  */
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
-    if (!user?.storeId) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
+router.get('/:id', asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const user = getAuthenticatedUser(req);
+  const { id } = InquiryIdParamSchema.parse(req.params);
+  const where: Prisma.ProductInquiryWhereInput = {
+    id,
+    ...getStoreScope(user),
+  };
 
-    const inquiryId = parseInt(req.params.id);
-    if (isNaN(inquiryId)) {
-      return res.status(400).json({ error: 'ID inválido' });
-    }
+  const inquiry = await prisma.productInquiry.findFirst({
+    where,
+    include: inquiryDetailInclude,
+  });
 
-    const inquiry = await prisma.productInquiry.findFirst({
-      where: {
-        id: inquiryId,
-        storeId: user.storeId,
-      },
-      include: {
-        product: {
-          include: {
-            media: {
-              where: { type: 'IMAGE' },
-              take: 5,
-              select: { url: true, isPrimary: true },
-            },
-            variants: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-                size: true,
-                salePrice: true,
-              },
-            },
-          },
-        },
-      },
-    });
+  if (!inquiry) {
+    throw Errors.notFound('Consulta');
+  }
 
-    if (!inquiry) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
+  const visibleInquiry = inquiry.status === InquiryStatus.NEW
+    ? await prisma.productInquiry.update({
+      where: { id: inquiry.id },
+      data: { status: InquiryStatus.VIEWED },
+      include: inquiryDetailInclude,
+    })
+    : inquiry;
 
-    // Si es nueva, marcarla como vista automáticamente
-    if (inquiry.status === 'NEW') {
-      await prisma.productInquiry.update({
-        where: { id: inquiryId },
-        data: { status: 'VIEWED' },
-      });
-      inquiry.status = 'VIEWED';
-    }
+  // Spreading the resource keeps the previous detail response readable by existing clients.
+  sendSuccess(res, 200, visibleInquiry, visibleInquiry);
+}));
 
-    res.json(inquiry);
-  })
-);
+async function updateInquiry(
+  id: number,
+  user: AuthUser,
+  update: UpdateInquiryInput,
+) {
+  const existing = await prisma.productInquiry.findFirst({
+    where: { id, ...getStoreScope(user) },
+    select: {
+      id: true,
+      status: true,
+      result: true,
+      finalAmount: true,
+    },
+  });
+
+  if (!existing) {
+    throw Errors.notFound('Consulta');
+  }
+
+  validateInquiryMutation(existing, update);
+
+  return prisma.productInquiry.update({
+    where: { id },
+    data: toUpdateData(existing, update),
+    include: inquiryListInclude,
+  });
+}
 
 /**
- * PUT /api/inquiries/:id
- * Actualizar estado/resultado de una consulta
+ * PUT/PATCH /api/inquiries/:id
+ * Applies a valid lifecycle transition or updates the closing outcome.
  */
-router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
-    if (!user?.storeId) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
+const updateInquiryHandler = asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const user = getAuthenticatedUser(req);
+  const { id } = InquiryIdParamSchema.parse(req.params);
+  const update = UpdateInquirySchema.parse(req.body);
+  const inquiry = await updateInquiry(id, user, update);
 
-    const inquiryId = parseInt(req.params.id);
-    if (isNaN(inquiryId)) {
-      return res.status(400).json({ error: 'ID inválido' });
-    }
+  sendSuccess(res, 200, inquiry, { inquiry });
+});
 
-    const data = UpdateInquirySchema.parse(req.body);
-
-    // Verificar que la consulta existe y pertenece a la tienda
-    const existing = await prisma.productInquiry.findFirst({
-      where: {
-        id: inquiryId,
-        storeId: user.storeId,
-      },
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-    // Si se está cerrando la consulta, agregar fecha de cierre
-    const updateData: any = { ...data };
-    if (data.status === 'CLOSED' && existing.status !== 'CLOSED') {
-      updateData.closedAt = new Date();
-    }
-
-    const inquiry = await prisma.productInquiry.update({
-      where: { id: inquiryId },
-      data: updateData,
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            media: {
-              where: { isPrimary: true },
-              take: 1,
-              select: { url: true },
-            },
-          },
-        },
-      },
-    });
-
-    // Si se vendió y hay monto, actualizar estadísticas de la tienda
-    if (data.result === 'SOLD' && data.finalAmount) {
-      await prisma.store.update({
-        where: { id: user.storeId },
-        data: {
-          totalSales: { increment: data.finalAmount },
-        },
-      });
-    }
-
-    res.json({
-      success: true,
-      inquiry,
-    });
-  })
-);
+router.put('/:id', updateInquiryHandler);
+router.patch('/:id', updateInquiryHandler);
 
 /**
- * POST /api/inquiries/:id/close
- * Cerrar una consulta con resultado (endpoint simplificado)
+ * POST/PATCH /api/inquiries/:id/close
+ * Closes an inquiry with a final result. Inventory changes are explicit and atomic.
  */
-router.post('/:id/close', asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
-    if (!user?.storeId) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
+const closeInquiryHandler = asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const user = getAuthenticatedUser(req);
+  const { id } = InquiryIdParamSchema.parse(req.params);
+  const input = CloseInquirySchema.parse(req.body);
+  const result = resolveCloseResult(input);
 
-    const inquiryId = parseInt(req.params.id);
-    const { result, resultNote, finalAmount, updateStock, variantId } = req.body;
+  const existing = await prisma.productInquiry.findFirst({
+    where: { id, ...getStoreScope(user) },
+    select: {
+      id: true,
+      productId: true,
+      variantId: true,
+      status: true,
+      result: true,
+      finalAmount: true,
+    },
+  });
 
-    if (!result || !['SOLD', 'LOST_PRICE', 'LOST_STOCK', 'LOST_NO_REPLY', 'LOST_OTHER', 'PENDING'].includes(result)) {
-      return res.status(400).json({ error: 'Resultado inválido' });
-    }
+  if (!existing) {
+    throw Errors.notFound('Consulta');
+  }
 
-    // Cerrar la consulta
-    const inquiry = await prisma.productInquiry.update({
-      where: {
-        id: inquiryId,
-        storeId: user.storeId,
-      },
-      data: {
-        status: 'CLOSED',
-        result,
-        resultNote,
-        finalAmount: finalAmount ? Number(finalAmount) : null,
-        closedAt: new Date(),
-      },
-    });
+  if (existing.status === InquiryStatus.CLOSED) {
+    throw Errors.conflict('La consulta ya fue cerrada');
+  }
 
-    // Si se vendió y se pidió actualizar stock
-    if (result === 'SOLD' && updateStock && variantId) {
-      await prisma.productVariant.update({
-        where: { id: variantId },
-        data: {
-          stock: { decrement: 1 },
+  if (input.updateStock && result !== InquiryResult.SOLD) {
+    throw Errors.validation('Solo una venta cerrada puede actualizar stock');
+  }
+
+  const update: UpdateInquiryInput = {
+    status: InquiryStatus.CLOSED,
+    result,
+    resultNote: input.resultNote ?? input.notes ?? input.lossReason,
+    finalAmount: input.finalAmount,
+  };
+  validateInquiryMutation(existing, update);
+
+  const stockVariantId = input.variantId ?? existing.variantId;
+  if (input.updateStock && !stockVariantId) {
+    throw Errors.validation('Se requiere una variante para actualizar stock');
+  }
+
+  const inquiry = await prisma.$transaction(async (tx) => {
+    if (input.updateStock && stockVariantId) {
+      const stockUpdate = await tx.productVariant.updateMany({
+        where: {
+          id: stockVariantId,
+          productId: existing.productId,
+          stock: { gte: 1 },
         },
+        data: { stock: { decrement: 1 } },
       });
+
+      if (stockUpdate.count !== 1) {
+        throw Errors.conflict('La variante no existe o no tiene stock disponible');
+      }
     }
 
-    res.json({
-      success: true,
-      inquiry,
+    return tx.productInquiry.update({
+      where: { id: existing.id },
+      data: toUpdateData(existing, update),
+      include: inquiryListInclude,
     });
-  })
-);
+  });
+
+  sendSuccess(res, 200, inquiry, { inquiry });
+});
+
+router.post('/:id/close', closeInquiryHandler);
+router.patch('/:id/close', closeInquiryHandler);
 
 /**
  * DELETE /api/inquiries/:id
- * Eliminar una consulta (soft delete lógico, solo admin)
+ * Hard deletion is restricted to platform administrators because the schema has no soft-delete field.
  */
-router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
-    if (!user?.storeId) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
+router.delete('/:id', asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const user = getAuthenticatedUser(req);
+  if (user.role !== UserRole.SUPER_ADMIN) {
+    throw Errors.forbidden('Solo un administrador puede eliminar consultas');
+  }
 
-    const inquiryId = parseInt(req.params.id);
+  const { id } = InquiryIdParamSchema.parse(req.params);
+  const existing = await prisma.productInquiry.findUnique({
+    where: { id },
+    select: { id: true },
+  });
 
-    await prisma.productInquiry.deleteMany({
-      where: {
-        id: inquiryId,
-        storeId: user.storeId,
-      },
-    });
+  if (!existing) {
+    throw Errors.notFound('Consulta');
+  }
 
-    res.json({ success: true });
-  })
-);
+  await prisma.productInquiry.delete({ where: { id } });
+  res.status(204).send();
+}));
 
 export default router;

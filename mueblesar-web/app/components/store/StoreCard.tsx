@@ -41,6 +41,7 @@ export function StoreCard({ store, variant = "default" }: StoreCardProps) {
               src={store.logoUrl}
               alt={store.name}
               fill
+              unoptimized
               className="object-cover"
               sizes="56px"
             />
@@ -86,6 +87,7 @@ export function StoreCard({ store, variant = "default" }: StoreCardProps) {
                   alt={store.name}
                   width={80}
                   height={80}
+                  unoptimized
                   className="object-cover"
                 />
               ) : (
@@ -148,6 +150,7 @@ export function StoreCard({ store, variant = "default" }: StoreCardProps) {
               src={store.logoUrl}
               alt={store.name}
               fill
+              unoptimized
               className="object-cover"
               sizes="64px"
             />

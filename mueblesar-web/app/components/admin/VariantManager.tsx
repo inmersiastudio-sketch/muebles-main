@@ -168,9 +168,21 @@ export function VariantManager({ variants, productName, onChange }: VariantManag
     { name: "Violeta", hex: "#8B5CF6" },
   ];
 
-  const sizes = ["1 cuerpo", "2 cuerpos", "3 cuerpos", "4 cuerpos", "King", "Queen", "Twin", "Single"];
-  const fabrics = ["Lino", "Cuero", "Tela", "Gamuza", "Algodón", "Poliéster", "Microfibra", "Terciopelo"];
-  const finishes = ["Mate", "Brillante", "Texturizado", "Satinado", "Rústico", "Moderno"];
+  const sizes = [
+    "Estándar", "En L", "Chico", "Mediano", "Grande",
+    "120x60 cm", "140x70 cm", "160x80 cm",
+    "1 cuerpo", "2 cuerpos", "3 cuerpos", "4 cuerpos",
+    "King", "Queen", "Twin", "Single"
+  ];
+  const materials = [
+    "Madera Maciza", "Melamina", "Hierro/Metal", "Vidrio", "MDF",
+    "Lino", "Cuero", "Tela", "Gamuza", "Algodón", "Poliéster", "Terciopelo",
+    "Paraíso", "Pino", "Petiribí"
+  ];
+  const finishes = [
+    "Laqueado", "Lustrado", "Satinado", "Mate", "Brillante", 
+    "Enchapado", "Pintura Epoxi", "Texturizado", "Rústico", "Moderno"
+  ];
 
   return (
     <div className="space-y-3">
@@ -341,6 +353,13 @@ export function VariantManager({ variants, productName, onChange }: VariantManag
                       {variant.color && (
                         <p className="mt-1 text-xs text-slate-600">Seleccionado: {variant.color}</p>
                       )}
+                      <input
+                        type="text"
+                        value={variant.color || ""}
+                        onChange={(e) => updateVariant(index, { color: e.target.value })}
+                        className="mt-2 w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#0058a3]"
+                        placeholder="O escribir color personalizado"
+                      />
                     </div>
 
                     {/* Size */}
@@ -348,16 +367,14 @@ export function VariantManager({ variants, productName, onChange }: VariantManag
                       <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
                         Tamaño
                       </label>
-                      <select
+                      <input
+                        type="text"
                         value={variant.size || ""}
+                        list="var-size-suggestions"
                         onChange={(e) => updateVariant(index, { size: e.target.value })}
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3]"
-                      >
-                        <option value="">Seleccionar</option>
-                        {sizes.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                        placeholder="Ej: 120x60 cm, 3 cuerpos..."
+                      />
                     </div>
 
                     {/* Fabric */}
@@ -365,16 +382,14 @@ export function VariantManager({ variants, productName, onChange }: VariantManag
                       <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
                         Material / Tela
                       </label>
-                      <select
+                      <input
+                        type="text"
                         value={variant.fabric || ""}
+                        list="var-material-suggestions"
                         onChange={(e) => updateVariant(index, { fabric: e.target.value })}
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3]"
-                      >
-                        <option value="">Seleccionar</option>
-                        {fabrics.map((f) => (
-                          <option key={f} value={f}>{f}</option>
-                        ))}
-                      </select>
+                        placeholder="Ej: Madera Maciza, Lino..."
+                      />
                     </div>
 
                     {/* Finish */}
@@ -382,16 +397,14 @@ export function VariantManager({ variants, productName, onChange }: VariantManag
                       <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
                         Acabado
                       </label>
-                      <select
+                      <input
+                        type="text"
                         value={variant.finish || ""}
+                        list="var-finish-suggestions"
                         onChange={(e) => updateVariant(index, { finish: e.target.value })}
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3]"
-                      >
-                        <option value="">Seleccionar</option>
-                        {finishes.map((f) => (
-                          <option key={f} value={f}>{f}</option>
-                        ))}
-                      </select>
+                        placeholder="Ej: Laqueado, Lustrado..."
+                      />
                     </div>
                   </div>
 
@@ -496,6 +509,25 @@ export function VariantManager({ variants, productName, onChange }: VariantManag
           </button>
         </div>
       )}
+
+      {/* Datalists de sugerencias para variantes */}
+      <datalist id="var-size-suggestions">
+        {sizes.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
+
+      <datalist id="var-material-suggestions">
+        {materials.map((m) => (
+          <option key={m} value={m} />
+        ))}
+      </datalist>
+
+      <datalist id="var-finish-suggestions">
+        {finishes.map((f) => (
+          <option key={f} value={f} />
+        ))}
+      </datalist>
     </div>
   );
 }

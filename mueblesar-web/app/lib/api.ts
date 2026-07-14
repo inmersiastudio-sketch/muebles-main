@@ -29,11 +29,35 @@ const buildQuery = (filters: ProductFilters): string => {
 
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === "" || value === null) return;
+
+    const apiKeyMap: Record<string, string> = {
+      q: "search",
+      pageSize: "limit",
+      priceMin: "minPrice",
+      priceMax: "maxPrice",
+      arOnly: "hasAr",
+      sort: "sortBy",
+    };
+    const apiKey = apiKeyMap[key] || key;
+    let apiValue = value;
+
+    if (key === "sort") {
+      const sortMap: Record<string, string> = {
+        price_asc: "price_asc",
+        price_desc: "price_desc",
+        newest: "newest",
+        relevance: "relevance",
+        price: filters.direction === "desc" ? "price_desc" : "price_asc",
+        createdAt: "newest",
+      };
+      apiValue = sortMap[String(value)] || value;
+    }
+
     if (typeof value === "boolean") {
-      if (value) params.set(key, "true");
+      if (value) params.set(apiKey, "true");
       return;
     }
-    params.set(key, String(value));
+    params.set(apiKey, String(apiValue));
   });
 
   const qs = params.toString();
@@ -46,7 +70,13 @@ export async function fetchProducts(filters: ProductFilters = {}): Promise<Produ
     if (!res.ok) {
       throw new Error(`Bad status ${res.status}`);
     }
-    return res.json();
+    const data = await res.json();
+    return {
+      ...data,
+      total: data.total ?? data.pagination?.total ?? data.items?.length ?? 0,
+      page: data.page ?? data.pagination?.page,
+      pageSize: data.pageSize ?? data.pagination?.limit,
+    };
   } catch (error) {
     console.error("Failed to fetch products", error);
     return { items: [], total: 0 };

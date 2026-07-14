@@ -1,524 +1,191 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ElementType } from "react";
-import { useAdmin } from "../layout";
-import { useToast } from "../../context/ToastContext";
-import { CreditPackages } from "../../components/dashboard/CreditPackages";
+import { useCallback, useEffect, useState } from "react";
 import {
-    CreditCard,
-    Check,
-    CheckCircle2,
-    XCircle,
-    AlertCircle,
-    Loader2,
-    Zap,
-    Crown,
-    Building2,
-    Sparkles,
-    ArrowRight,
-    Coins
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  RefreshCw,
+  XCircle,
 } from "lucide-react";
+import { useAdmin } from "../layout";
+import type { SubscriptionPlan, SubscriptionStatus } from "@/app/lib/admin.types";
 
-type SubscriptionStatus = {
-    status: "ACTIVE" | "INACTIVE" | "TRIAL" | "PAST_DUE" | "CANCELED";
-    plan: string;
-    creditsUsed: number;
-    creditsLimit: number;
-    nextBillingDate?: string;
-    amount?: number;
-    ai3dCredits: number;
-    ai3dUsed: number;
+type PlansResponse = {
+  plans: Record<string, Omit<SubscriptionPlan, "id">>;
 };
 
-type Plan = {
-    id: string;
-    name: string;
-    price: number;
-    credits: number;
-    features: string[];
-    popular?: boolean;
-    icon: ElementType;
-};
+function getErrorMessage(response: Response, fallback: string) {
+  if (response.status === 401) return "Tu sesion vencio. Volve a iniciar sesion.";
+  if (response.status === 403) return "No tenes permisos para administrar la facturacion de esta tienda.";
+  return response
+    .json()
+    .then((data: { error?: string; message?: string }) => data.error || data.message || fallback)
+    .catch(() => fallback);
+}
 
-const plans: Plan[] = [
-    {
-        id: "basic",
-        name: "Mueblería Básica",
-        price: 15000,
-        credits: 10,
-        features: [
-            "10 Créditos 3D/mes",
-            "Hasta 50 productos",
-            "Soporte por email",
-            "Modelos GLB/USDZ",
-            "Visualización AR básica"
-        ],
-        icon: Building2
-    },
-    {
-        id: "pro",
-        name: "Mueblería Pro",
-        price: 35000,
-        credits: 30,
-        popular: true,
-        features: [
-            "30 Créditos 3D/mes",
-            "Hasta 200 productos",
-            "Estadísticas de vistas AR",
-            "Soporte prioritario",
-            "Badge \"Pro\" en tu tienda"
-        ],
-        icon: Crown
-    },
-    {
-        id: "enterprise",
-        name: "Enterprise",
-        price: 80000,
-        credits: 100,
-        features: [
-            "100 Créditos 3D/mes",
-            "Hasta 1000 productos",
-            "Soporte 24/7",
-            "API keys personalizadas",
-            "Onboarding personalizado"
-        ],
-        icon: Zap
-    }
-];
+function statusPresentation(status: string) {
+  const presentations: Record<string, { label: string; className: string }> = {
+    ACTIVE: { label: "Activa", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+    TRIAL: { label: "Prueba", className: "border-amber-200 bg-amber-50 text-amber-700" },
+    PAST_DUE: { label: "Pendiente de pago", className: "border-red-200 bg-red-50 text-red-700" },
+    CANCELED: { label: "Cancelada", className: "border-slate-200 bg-slate-100 text-slate-700" },
+    INACTIVE: { label: "Sin plan activo", className: "border-slate-200 bg-slate-50 text-slate-700" },
+  };
+  return presentations[status] || { label: status || "Sin estado", className: "border-slate-200 bg-slate-50 text-slate-700" };
+}
+
+function formatPrice(amount: number, currency: string) {
+  try {
+    return new Intl.NumberFormat("es-AR", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
 
 export default function BillingPage() {
-    const { user, apiBase } = useAdmin();
-    const { success, error: showError } = useToast();
+  const { user, apiBase } = useAdmin();
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [subscribing, setSubscribing] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
-    const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [subscribing, setSubscribing] = useState<string | null>(null);
-    const [creditsReturnStatus, setCreditsReturnStatus] = useState<string | null>(null);
-    const handledReturnStatusRef = useRef<string | null>(null);
+  const loadBilling = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-    const fetchSubscriptionStatus = useCallback(async () => {
-        if (!user?.storeId) {
-            setLoading(false);
-            return;
-        }
+    setLoading(true);
+    setError(null);
+    try {
+      const plansResponse = await fetch(`${apiBase}/api/subscriptions/plans`, { credentials: "include" });
+      if (!plansResponse.ok) throw new Error(await getErrorMessage(plansResponse, "No se pudieron cargar los planes publicados."));
+      const plansPayload = (await plansResponse.json()) as PlansResponse;
+      const receivedPlans = Object.entries(plansPayload.plans || {}).map(([id, plan]) => ({ id, ...plan }));
+      setPlans(receivedPlans);
 
-        setLoading(true);
-        try {
-            const res = await fetch(`${apiBase}/api/subscriptions/status/${user.storeId}`, {
-                credentials: "include"
-            });
+      if (!user.storeId) {
+        setSubscription(null);
+        return;
+      }
 
-            if (res.ok) {
-                const data = await res.json();
+      const statusResponse = await fetch(`${apiBase}/api/subscriptions/status/${user.storeId}`, { credentials: "include" });
+      if (!statusResponse.ok) throw new Error(await getErrorMessage(statusResponse, "No se pudo cargar el estado de facturacion."));
+      setSubscription((await statusResponse.json()) as SubscriptionStatus);
+    } catch (loadError) {
+      setPlans([]);
+      setSubscription(null);
+      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar la facturacion.");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBase, user]);
 
-                // Map API "planType" to frontend plan label
-                let displayName = "Ninguno";
-                if (data.planType === "BASIC") displayName = "Mueblería Básica";
-                if (data.planType === "PREMIUM") displayName = "Mueblería Pro";
-                if (data.planType === "ENTERPRISE") displayName = "Enterprise";
+  useEffect(() => {
+    loadBilling();
+  }, [loadBilling]);
 
-                setSubscription({
-                    status: data.status as SubscriptionStatus['status'] || "INACTIVE",
-                    plan: displayName,
-                    creditsUsed: data.creditsUsed || 0,
-                    creditsLimit: data.creditsLimit || 5, // fallback 5
-                    nextBillingDate: data.nextPaymentDate || undefined,
-                    amount: undefined, // not returned from our DB
-                    ai3dCredits: data.ai3dCredits || 0,
-                    ai3dUsed: data.ai3dUsed || 0
-                });
-            } else {
-                // If no subscription, set default
-                setSubscription({
-                    status: "INACTIVE",
-                    plan: "Ninguno",
-                    creditsUsed: 0,
-                    creditsLimit: 0,
-                    ai3dCredits: 0,
-                    ai3dUsed: 0
-                });
-            }
-        } catch (err) {
-            console.error("Failed to fetch subscription:", err);
-            setSubscription({
-                status: "INACTIVE",
-                plan: "Ninguno",
-                creditsUsed: 0,
-                creditsLimit: 0,
-                ai3dCredits: 0,
-                ai3dUsed: 0
-            });
-        } finally {
-            setLoading(false);
-        }
-    }, [apiBase, user?.storeId]);
+  const startCheckout = async (plan: SubscriptionPlan) => {
+    if (!user?.storeId || !user.email) return;
+    setSubscribing(plan.id);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBase}/api/subscriptions/create-checkout`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ planType: plan.id, storeId: user.storeId, payerEmail: user.email }),
+      });
+      if (!response.ok) throw new Error(await getErrorMessage(response, "No se pudo iniciar el checkout de suscripcion."));
+      const payload = (await response.json()) as { checkoutUrl?: string };
+      if (!payload.checkoutUrl) throw new Error("La API no devolvio una URL de checkout valida.");
+      window.location.assign(payload.checkoutUrl);
+    } catch (checkoutError) {
+      setError(checkoutError instanceof Error ? checkoutError.message : "No se pudo iniciar el checkout de suscripcion.");
+      setSubscribing(null);
+    }
+  };
 
-    useEffect(() => {
-        if (!user) return; // Wait until user is strictly determined
+  const cancelSubscription = async () => {
+    if (!user?.storeId || !window.confirm("Queres cancelar la suscripcion activa?")) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBase}/api/subscriptions/cancel`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ storeId: user.storeId }),
+      });
+      if (!response.ok) throw new Error(await getErrorMessage(response, "No se pudo cancelar la suscripcion."));
+      await loadBilling();
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : "No se pudo cancelar la suscripcion.");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
-        if (user.storeId) {
-            fetchSubscriptionStatus();
-        } else {
-            // Super admins or users without a store shouldn't load forever
-            setSubscription({
-                status: "INACTIVE",
-                plan: "Ninguno",
-                creditsUsed: 0,
-                creditsLimit: 5,
-                ai3dCredits: 0,
-                ai3dUsed: 0
-            });
-            setLoading(false);
-        }
-    }, [fetchSubscriptionStatus, user]);
+  if (!user) {
+    return <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Necesitas una sesion activa para consultar la facturacion.</div>;
+  }
 
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        setCreditsReturnStatus(params.get("credits") ?? params.get("status"));
-    }, []);
+  const planName = subscription?.planType ? plans.find((plan) => plan.id === subscription.planType)?.name || subscription.planType : "Sin plan";
+  const status = statusPresentation(subscription?.status || "INACTIVE");
+  const usage = subscription ? Math.min(100, (subscription.creditsUsed / Math.max(1, subscription.creditsLimit)) * 100) : 0;
+  const purchasablePlans = plans.filter((plan) => plan.amount > 0);
+  const canCheckout = Boolean(user.storeId && user.email);
 
-    useEffect(() => {
-        if (!creditsReturnStatus) return;
-        if (handledReturnStatusRef.current === creditsReturnStatus) return;
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div><h1 className="text-2xl font-extrabold text-slate-900">Facturacion</h1><p className="mt-0.5 text-sm text-slate-500">Estado de suscripcion y creditos informados por la API.</p></div>
+        <button type="button" onClick={loadBilling} disabled={loading || subscribing !== null || cancelling} className="inline-flex h-10 items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:self-auto"><RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Actualizar</button>
+      </div>
 
-        handledReturnStatusRef.current = creditsReturnStatus;
+      {error && <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800"><span>{error}</span><button type="button" onClick={loadBilling} className="underline underline-offset-2">Reintentar</button></div>}
 
-        if (creditsReturnStatus === "success") {
-            success("Pago recibido. Tus créditos se van a acreditar cuando Mercado Pago confirme el webhook.");
-            fetchSubscriptionStatus();
-            return;
-        }
+      {!user.storeId && !loading && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900"><div className="flex items-start gap-2"><AlertCircle size={18} className="mt-0.5 shrink-0" /><p>No hay una tienda asignada a tu sesion. Podes consultar los planes publicados, pero no iniciar ni administrar una suscripcion.</p></div></div>
+      )}
 
-        if (creditsReturnStatus === "pending") {
-            success("Tu pago está pendiente. Actualizaremos los créditos cuando Mercado Pago lo confirme.");
-            fetchSubscriptionStatus();
-            return;
-        }
+      {loading ? (
+        <div className="flex min-h-64 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-500"><Loader2 size={18} className="animate-spin" /> Cargando facturacion...</div>
+      ) : (
+        <>
+          {subscription && (
+            <section className="grid gap-3 lg:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-white p-5 lg:col-span-2">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Suscripcion actual</p><h2 className="mt-1 text-xl font-extrabold text-slate-900">{planName}</h2></div><span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>{subscription.status === "ACTIVE" ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}{status.label}</span></div>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Creditos mensuales</p><div className="mt-2 flex items-center gap-3"><div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${usage >= 90 ? "bg-red-500" : usage >= 70 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${usage}%` }} /></div><span className="text-sm font-bold text-slate-900">{subscription.creditsUsed} / {subscription.creditsLimit}</span></div></div><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Proximo cobro</p><p className="mt-2 text-sm font-bold text-slate-900">{subscription.nextPaymentDate ? new Date(subscription.nextPaymentDate).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" }) : "No informado"}</p></div></div>
+                {subscription.status === "ACTIVE" && <button type="button" onClick={cancelSubscription} disabled={cancelling} className="mt-6 inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 px-3 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">{cancelling && <Loader2 size={14} className="animate-spin" />} Cancelar suscripcion</button>}
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Creditos 3D prepagos</p><p className="mt-2 text-3xl font-extrabold text-slate-900">{subscription.ai3dCredits}</p><p className="mt-1 text-sm text-slate-500">Saldo disponible</p><div className="mt-5 border-t border-slate-100 pt-4"><p className="text-xs text-slate-500">Modelos procesados</p><p className="mt-1 text-sm font-bold text-slate-900">{subscription.ai3dUsed}</p></div></div>
+            </section>
+          )}
 
-        if (creditsReturnStatus === "failure" || creditsReturnStatus === "error") {
-            showError("Mercado Pago no pudo completar la compra de créditos.");
-        }
-    }, [creditsReturnStatus, fetchSubscriptionStatus, showError, success]);
+          <section>
+            <div className="mb-4"><h2 className="text-lg font-bold text-slate-900">Planes publicados</h2><p className="mt-0.5 text-sm text-slate-500">Disponibilidad y precios recibidos directamente del servidor.</p></div>
+            {purchasablePlans.length === 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-8 text-center"><CreditCard size={28} className="mx-auto mb-3 text-slate-300" /><h3 className="font-bold text-slate-900">No hay planes para contratar</h3><p className="mt-1 text-sm text-slate-500">La API no publico planes pagos disponibles.</p></div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {purchasablePlans.map((plan) => {
+                  const active = subscription?.planType === plan.id;
+                  return <article key={plan.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5"><div><h3 className="text-lg font-bold text-slate-900">{plan.name}</h3><p className="mt-1 text-2xl font-extrabold text-slate-900">{formatPrice(plan.amount, plan.currency)}<span className="ml-1 text-sm font-medium text-slate-500">/mes</span></p><p className="mt-4 text-sm text-slate-600">{plan.credits} creditos 3D mensuales y hasta {plan.maxProducts} productos.</p><ul className="mt-4 space-y-2">{plan.features.map((feature) => <li key={feature} className="flex gap-2 text-sm text-slate-600"><Check size={15} className="mt-0.5 shrink-0 text-emerald-600" />{feature}</li>)}</ul></div><button type="button" onClick={() => startCheckout(plan)} disabled={!canCheckout || active || subscribing !== null} className={`mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 ${active ? "border border-emerald-200 bg-emerald-50 text-emerald-700" : "bg-[#0058a3] text-white hover:bg-[#004f93]"}`}>{subscribing === plan.id ? <><Loader2 size={15} className="animate-spin" /> Procesando</> : active ? <><CheckCircle2 size={15} /> Plan actual</> : !canCheckout ? "Tienda o email no disponible" : <><CreditCard size={15} /> Contratar</>}</button></article>;
+                })}
+              </div>
+            )}
+          </section>
 
-    const handleSubscribe = async (planId: string) => {
-        setSubscribing(planId);
-
-        let mappedPlanType = "BASIC";
-        if (planId === "pro") mappedPlanType = "PREMIUM";
-        if (planId === "enterprise") mappedPlanType = "ENTERPRISE";
-
-        try {
-            const validEmail = (user?.email && user.email.includes('@'))
-                ? user.email
-                : "test@amobly.com";
-
-            const res = await fetch(`${apiBase}/api/subscriptions/create-checkout`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({
-                    planType: mappedPlanType,
-                    storeId: user?.storeId ? Number(user.storeId) : 1, // Fallback si eres admin sin storeId
-                    payerEmail: validEmail
-                })
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                console.error("Backend validation error data:", data);
-                const errorMsg = data.details ? JSON.stringify(data.details) : data.message || data.error || "Error al procesar la suscripción";
-                showError("Rechazado por Backend: " + errorMsg);
-                return;
-            }
-
-            if (data.checkoutUrl) {
-                success("Redirigiendo a MercadoPago...");
-                window.location.href = data.checkoutUrl;
-            } else {
-                showError("No se recibió URL de pago");
-            }
-        } catch (err) {
-            console.error("Subscription error:", err);
-            showError("Error de conexión. Intentá nuevamente.");
-        } finally {
-            setSubscribing(null);
-        }
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "ACTIVE": return "text-emerald-600 bg-emerald-50 border-emerald-200";
-            case "TRIAL": return "text-amber-600 bg-amber-50 border-amber-200";
-            case "PAST_DUE": return "text-red-600 bg-red-50 border-red-200";
-            case "CANCELED": return "text-red-600 bg-red-50 border-red-200";
-            default: return "text-slate-600 bg-slate-50 border-slate-200";
-        }
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case "ACTIVE": return <CheckCircle2 size={16} />;
-            case "TRIAL": return <Sparkles size={16} />;
-            case "PAST_DUE": return <AlertCircle size={16} />;
-            case "CANCELED": return <XCircle size={16} />;
-            default: return <AlertCircle size={16} />;
-        }
-    };
-
-    const getStatusLabel = (status: string) => {
-        switch (status) {
-            case "ACTIVE": return "Activa";
-            case "TRIAL": return "Prueba";
-            case "PAST_DUE": return "Impaga";
-            case "CANCELED": return "Cancelada";
-            default: return "Sin plan";
-        }
-    };
-
-    const creditsPercentage = subscription
-        ? Math.min(100, (subscription.creditsUsed / Math.max(1, subscription.creditsLimit)) * 100)
-        : 0;
-
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat("es-AR", {
-            style: "currency",
-            currency: "ARS",
-            minimumFractionDigits: 0
-        }).format(price);
-    };
-
-    return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-extrabold text-slate-900">Facturación</h1>
-                <p className="text-sm text-slate-500 mt-0.5">Gestioná tu suscripción mensual y recargá créditos para generación 3D</p>
-            </div>
-
-            {/* Status Grid (Subscription + Credit Balance) */}
-            <div className="grid gap-6 md:grid-cols-3">
-                {/* Current Subscription Card */}
-                <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div className="bg-gradient-to-r from-[#001d3d] via-[#003566] to-[#0058a3] px-6 py-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                                    <CreditCard size={20} className="text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-white font-bold text-base">Suscripción Mensual</h2>
-                                    <p className="text-white/70 text-xs">Plan y pool de créditos mensuales</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            {loading ? (
-                                <div className="flex items-center justify-center py-6">
-                                    <Loader2 size={24} className="animate-spin text-slate-400" />
-                                </div>
-                            ) : (
-                                <div className="grid gap-6 sm:grid-cols-3">
-                                    {/* Status */}
-                                    <div className="p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Estado</p>
-                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold w-fit ${getStatusColor(subscription?.status || "INACTIVE")}`}>
-                                            {getStatusIcon(subscription?.status || "INACTIVE")}
-                                            {getStatusLabel(subscription?.status || "INACTIVE")}
-                                        </div>
-                                    </div>
-
-                                    {/* Plan Name */}
-                                    <div className="p-4 rounded-xl border border-slate-200">
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre Plan</p>
-                                        <p className="text-lg font-extrabold text-slate-900">{subscription?.plan || "Sin plan"}</p>
-                                        {subscription?.nextBillingDate && (
-                                            <p className="text-[10px] text-slate-500 mt-1">
-                                                Próximo cobro: {new Date(subscription.nextBillingDate).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Monthly Credits Balance */}
-                                    <div className="p-4 rounded-xl border border-slate-200">
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Créditos del Plan</p>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex-1">
-                                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all ${creditsPercentage > 90 ? "bg-red-500" :
-                                                            creditsPercentage > 70 ? "bg-amber-500" : "bg-emerald-500"
-                                                            }`}
-                                                        style={{ width: `${creditsPercentage}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-900 shrink-0">
-                                                {subscription?.creditsUsed || 0} / {subscription?.creditsLimit || 0}
-                                            </span>
-                                        </div>
-                                        <p className="text-[9px] text-slate-500 mt-1">Se resetean cada mes de facturación</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Pre-paid Credit Balance Card (Pay-per-use) */}
-                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div className="bg-gradient-to-r from-emerald-950 to-emerald-800 px-6 py-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                                    <Coins size={20} className="text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-white font-bold text-base">Créditos Prepagos</h2>
-                                    <p className="text-white/70 text-xs">Saldo de recargas ad-hoc</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            {loading ? (
-                                <div className="flex items-center justify-center py-6">
-                                    <Loader2 size={24} className="animate-spin text-slate-400" />
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                                        <span className="text-xs font-bold text-emerald-800">Saldo Disponible</span>
-                                        <span className="text-2xl font-extrabold text-emerald-950">
-                                            {subscription?.ai3dCredits || 0} <span className="text-xs font-medium text-emerald-700">créditos</span>
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs text-slate-500 px-1">
-                                        <span>Consumidos históricamente:</span>
-                                        <span className="font-bold text-slate-700">{subscription?.ai3dUsed || 0} modelos</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="p-6 pt-0">
-                        <p className="text-[10px] text-slate-400 leading-relaxed">
-                            Los créditos prepagos no vencen al final del mes y se usan automáticamente cuando consumís tu cupo de suscripción.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <CreditPackages currentCredits={subscription?.ai3dCredits || 0} apiBase={apiBase} />
-
-            {/* Plans */}
-            <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-6">Planes de Suscripción Mensual</h2>
-
-                <div className="grid gap-6 md:grid-cols-3">
-                    {plans.map((plan) => {
-                        const Icon = plan.icon;
-                        const isPopular = plan.popular;
-                        const isSubscribing = subscribing === plan.id;
-
-                        return (
-                            <div
-                                key={plan.id}
-                                className={`relative rounded-2xl border overflow-hidden bg-white transition-all hover:shadow-xl ${isPopular
-                                    ? "border-[#0058a3] shadow-lg shadow-[#0058a3]/10"
-                                    : "border-slate-200 shadow-sm hover:border-slate-300"
-                                    }`}
-                            >
-                                {/* Popular Badge */}
-                                {isPopular && (
-                                    <div className="absolute top-0 left-0 right-0">
-                                        <div className="bg-gradient-to-r from-[#0058a3] to-[#0070d6] text-white text-center py-1.5 text-xs font-bold">
-                                            MÁS POPULAR
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className={`p-6 ${isPopular ? "pt-12" : ""}`}>
-                                    {/* Plan Icon */}
-                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${isPopular
-                                        ? "bg-gradient-to-br from-[#0058a3] to-[#0070d6] text-white"
-                                        : "bg-slate-100 text-slate-600"
-                                        }`}>
-                                        <Icon size={24} />
-                                    </div>
-
-                                    {/* Plan Name */}
-                                    <h3 className="text-lg font-bold text-slate-900 mb-1">{plan.name}</h3>
-
-                                    {/* Price */}
-                                    <div className="flex items-baseline gap-1 mb-4">
-                                        <span className="text-3xl font-extrabold text-slate-900">
-                                            {formatPrice(plan.price)}
-                                        </span>
-                                        <span className="text-sm text-slate-500">/mes</span>
-                                    </div>
-
-                                    {/* Features */}
-                                    <ul className="space-y-3 mb-6">
-                                        {plan.features.map((feature, idx) => (
-                                            <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
-                                                <Check size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-                                                {feature}
-                                            </li>
-                                        ))}
-                                    </ul>
-
-                                    {/* Subscribe Button */}
-                                    <button
-                                        onClick={() => handleSubscribe(plan.id)}
-                                        disabled={isSubscribing || subscription?.plan === plan.name}
-                                        className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${isSubscribing
-                                            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                            : subscription?.plan === plan.name
-                                                ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
-                                                : isPopular
-                                                    ? "bg-gradient-to-r from-[#0058a3] to-[#0070d6] text-white hover:from-[#004f93] hover:to-[#0058a3] shadow-lg shadow-[#0058a3]/25 active:scale-[0.98]"
-                                                    : "bg-white text-[#0058a3] border-2 border-[#0058a3] hover:bg-[#0058a3]/5"
-                                            }`}
-                                    >
-                                        {isSubscribing ? (
-                                            <>
-                                                <Loader2 size={16} className="animate-spin" />
-                                                Procesando...
-                                            </>
-                                        ) : subscription?.plan === plan.name ? (
-                                            <>
-                                                <CheckCircle2 size={16} />
-                                                Plan Actual
-                                            </>
-                                        ) : (
-                                            <>
-                                                Suscribirme
-                                                <ArrowRight size={16} />
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Payment Methods Note */}
-            <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
-                    <CreditCard size={16} className="text-slate-600" />
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-slate-700">Pagos procesados y protegidos por MercadoPago</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                        Tus datos de pago están 100% protegidos. Aceptamos tarjetas de crédito, débito, dinero en Mercado Pago y transferencias.
-                        La acreditación de créditos y planes es instantánea una vez aprobado el pago.
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
+          {!subscription && !error && user.storeId && <div className="rounded-lg border border-slate-200 bg-white p-8 text-center"><XCircle size={28} className="mx-auto mb-3 text-slate-300" /><h2 className="font-bold text-slate-900">No hay estado de suscripcion disponible</h2><p className="mt-1 text-sm text-slate-500">La API no devolvio datos de facturacion para esta tienda.</p></div>}
+        </>
+      )}
+    </div>
+  );
 }

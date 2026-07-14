@@ -82,9 +82,11 @@ export class StoreController {
     }
 
     // Validar WhatsApp (debe ser numérico, opcionalmente con + al inicio)
-    if (whatsappNumber !== undefined && whatsappNumber) {
+    const normalizedWhatsapp = whatsappNumber ?? whatsapp;
+
+    if (normalizedWhatsapp !== undefined && normalizedWhatsapp) {
       const phoneRegex = /^\+?\d{10,15}$/;
-      if (!phoneRegex.test(whatsappNumber)) {
+      if (!phoneRegex.test(normalizedWhatsapp)) {
         throw Errors.validation(
           'Invalid WhatsApp number. Use format: +5491234567890 or 5491234567890'
         );
@@ -115,8 +117,7 @@ export class StoreController {
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (logoUrl !== undefined) updateData.logoUrl = logoUrl;
-    if (whatsapp !== undefined) updateData.whatsapp = whatsapp;
-    if (whatsappNumber !== undefined) updateData.whatsappNumber = whatsappNumber;
+    if (normalizedWhatsapp !== undefined) updateData.whatsapp = normalizedWhatsapp;
     if (phone !== undefined) updateData.phone = phone;
     if (email !== undefined) updateData.email = email;
     if (website !== undefined) updateData.website = website;

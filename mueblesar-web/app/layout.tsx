@@ -1,20 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Roboto_Mono } from "next/font/google";
 import { ClientProviders } from "./components/providers/ClientProviders";
 import { PublicWrapper } from "./components/layout/PublicWrapper";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const robotoMono = Roboto_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://amobly.ar";
 
@@ -91,7 +78,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={`${inter.variable} ${robotoMono.variable} antialiased`}>
+      <body className="font-sans antialiased">
         <ClientProviders>
           <PublicWrapper>{children}</PublicWrapper>
         </ClientProviders>

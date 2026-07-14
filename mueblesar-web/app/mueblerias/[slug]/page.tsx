@@ -102,6 +102,7 @@ export default async function StoreProfilePage({ params }: Props) {
                       alt={store.name}
                       width={112}
                       height={112}
+                      unoptimized
                       className="w-full h-full object-cover"
                     />
                   </div>

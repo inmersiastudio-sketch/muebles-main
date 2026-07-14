@@ -1,4 +1,4 @@
-export type CartItem = {
+export type InquiryProduct = {
   id: number;
   slug: string;
   name: string;
@@ -7,94 +7,129 @@ export type CartItem = {
   storeName: string;
   storeSlug: string;
   storeWhatsapp: string | null;
-  quantity: number;
+  quantity?: number;
 };
 
-const CART_STORAGE_KEY = "amobly_cart";
+export type StoreInquiryGroup = {
+  id: string;
+  storeName: string;
+  storeSlug: string;
+  storeWhatsapp: string | null;
+  items: InquiryProduct[];
+};
 
-export function getCart(): CartItem[] {
+const LEGACY_SAVED_PRODUCTS_STORAGE_KEY = "amobly_cart";
+
+function getStoreGroupId(product: InquiryProduct): string {
+  return product.storeSlug || product.storeName || String(product.id);
+}
+
+function getProductInquiryPath(product: InquiryProduct): string {
+  return product.storeSlug
+    ? `/catalog/${product.storeSlug}/${product.slug}`
+    : `/productos/${product.slug}`;
+}
+
+export function getLegacySavedProducts(): InquiryProduct[] {
   if (typeof window === "undefined") return [];
+
   try {
-    const stored = localStorage.getItem(CART_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    const stored = localStorage.getItem(LEGACY_SAVED_PRODUCTS_STORAGE_KEY);
+    const products: unknown = stored ? JSON.parse(stored) : [];
+
+    if (!Array.isArray(products)) return [];
+
+    return products.filter(
+      (product): product is InquiryProduct =>
+        typeof product === "object" &&
+        product !== null &&
+        typeof product.id === "number" &&
+        typeof product.slug === "string" &&
+        typeof product.name === "string"
+    );
   } catch {
     return [];
   }
 }
 
-export function saveCart(items: CartItem[]): void {
+export function clearLegacySavedProducts(): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  localStorage.removeItem(LEGACY_SAVED_PRODUCTS_STORAGE_KEY);
 }
 
-export function addToCart(item: Omit<CartItem, "quantity">): CartItem[] {
-  const cart = getCart();
-  const existing = cart.find((i) => i.id === item.id);
-  
-  let newCart: CartItem[];
-  if (existing) {
-    newCart = cart.map((i) =>
-      i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-    );
-  } else {
-    newCart = [...cart, { ...item, quantity: 1 }];
-  }
-  
-  saveCart(newCart);
-  return newCart;
-}
-
-export function removeFromCart(productId: number): CartItem[] {
-  const cart = getCart();
-  const newCart = cart.filter((i) => i.id !== productId);
-  saveCart(newCart);
-  return newCart;
-}
-
-export function updateQuantity(productId: number, quantity: number): CartItem[] {
-  const cart = getCart();
-  if (quantity <= 0) {
-    return removeFromCart(productId);
-  }
-  
-  const newCart = cart.map((i) =>
-    i.id === productId ? { ...i, quantity } : i
+export function removeLegacyStoreGroup(storeId: string): void {
+  const remaining = getLegacySavedProducts().filter(
+    (product) => getStoreGroupId(product) !== storeId
   );
-  saveCart(newCart);
-  return newCart;
-}
 
-export function clearCart(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(CART_STORAGE_KEY);
+
+  if (remaining.length === 0) {
+    localStorage.removeItem(LEGACY_SAVED_PRODUCTS_STORAGE_KEY);
+    return;
+  }
+
+  localStorage.setItem(LEGACY_SAVED_PRODUCTS_STORAGE_KEY, JSON.stringify(remaining));
 }
 
-export function getCartTotal(items: CartItem[]): number {
-  return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-}
+export function groupProductsByStore(items: InquiryProduct[]): StoreInquiryGroup[] {
+  const groups = new Map<string, StoreInquiryGroup>();
 
-export function getCartCount(items: CartItem[]): number {
-  return items.reduce((sum, item) => sum + item.quantity, 0);
-}
+  for (const item of items) {
+    const id = getStoreGroupId(item);
+    const existing = groups.get(id);
 
-export function generateWhatsAppMessage(items: CartItem[]): string {
-  if (items.length === 0) return "";
-  
-  const total = getCartTotal(items);
-  const itemsList = items
-    .map((item) => `- ${item.name} (x${item.quantity}) $${(item.price * item.quantity).toLocaleString("es-AR")}`)
-    .join("\n");
-  
-  return `Hola! Consulto por los siguientes productos:\n\n${itemsList}\n\n*Total: $${total.toLocaleString("es-AR")}*\n\nQuedo atento a tu respuesta. Gracias!`;
-}
-
-export function groupCartByStore(items: CartItem[]): Record<string, CartItem[]> {
-  return items.reduce((acc, item) => {
-    const storeKey = item.storeSlug;
-    if (!acc[storeKey]) {
-      acc[storeKey] = [];
+    if (existing) {
+      existing.items.push(item);
+      continue;
     }
-    acc[storeKey].push(item);
-    return acc;
-  }, {} as Record<string, CartItem[]>);
+
+    groups.set(id, {
+      id,
+      storeName: item.storeName || "Muebleria",
+      storeSlug: item.storeSlug,
+      storeWhatsapp: item.storeWhatsapp,
+      items: [item],
+    });
+  }
+
+  return [...groups.values()];
+}
+
+export function createInquiryMessage(items: InquiryProduct[]): string {
+  const products = items
+    .map((item) => {
+      const quantity = item.quantity && item.quantity > 1 ? ` (x${item.quantity})` : "";
+      return `- ${item.name}${quantity}`;
+    })
+    .join("\n");
+
+  return [
+    "Hola, quisiera consultar por los siguientes productos:",
+    "",
+    products,
+    "",
+    "Podrian indicarme disponibilidad y opciones? Gracias.",
+  ].join("\n");
+}
+
+export function createWhatsAppInquiryUrl(
+  storeWhatsapp: string | null | undefined,
+  items: InquiryProduct[]
+): string | null {
+  const phone = storeWhatsapp?.replace(/\D/g, "");
+  if (!phone || items.length === 0) return null;
+
+  return `https://wa.me/${phone}?text=${encodeURIComponent(createInquiryMessage(items))}`;
+}
+
+export function getInquiryDestination(product: InquiryProduct): {
+  href: string;
+  isWhatsApp: boolean;
+} {
+  const whatsAppUrl = createWhatsAppInquiryUrl(product.storeWhatsapp, [product]);
+
+  return whatsAppUrl
+    ? { href: whatsAppUrl, isWhatsApp: true }
+    : { href: getProductInquiryPath(product), isWhatsApp: false };
 }

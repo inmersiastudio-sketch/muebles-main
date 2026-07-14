@@ -284,6 +284,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
               name: true,
               slug: true,
               logoUrl: true,
+              whatsapp: true,
             },
           },
           variants: {

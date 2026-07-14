@@ -143,6 +143,7 @@ export default async function CatalogPage({ params, searchParams }: Props) {
                       src={store.logoUrl}
                       alt={store.name}
                       fill
+                      unoptimized
                       className="object-cover"
                     />
                   </div>
@@ -293,7 +294,7 @@ export default async function CatalogPage({ params, searchParams }: Props) {
                     originalPrice: product.originalPrice,
                     currency: product.currency || 'ARS',
                     imageUrl: product.imageUrl || undefined,
-                    store: { name: store.name, slug },
+                    store: { name: store.name, slug, whatsapp: store.whatsapp },
                     inStock: product.inStock || false,
                     hasDiscount: product.hasDiscount,
                     discountPercentage: product.discountPercentage,

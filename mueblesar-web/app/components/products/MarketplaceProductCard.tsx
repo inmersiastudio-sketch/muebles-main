@@ -1,157 +1,172 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
-import { FavoriteButton } from "../favorites/FavoriteButton";
-import { AddToCartButton } from "../cart/AddToCartButton";
 import { Cuboid } from "lucide-react";
+import { AddToCartButton } from "../cart/AddToCartButton";
+import { FavoriteButton } from "../favorites/FavoriteButton";
 import type { ProductListItem } from "@/types";
 
-type Props = {
-    product: any;
+type MarketplaceProduct = ProductListItem & {
+  images?: { url: string; altText?: string | null }[];
+  description?: string | null;
+  style?: string | null;
+  featured?: boolean;
+  isFeatured?: boolean;
+  arUrl?: string | null;
 };
 
+type Props = {
+  product: MarketplaceProduct;
+};
+
+function getPrice(value: unknown): number | null {
+  if (typeof value === "string" && value.trim() === "") return null;
+
+  const price = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(price) && price >= 0 ? price : null;
+}
+
+function formatPrice(price: number, currency?: string | null): string {
+  const numberFormat = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 });
+  const currencyCode = currency?.trim().toUpperCase();
+
+  if (!currencyCode || !/^[A-Z]{3}$/.test(currencyCode)) return numberFormat.format(price);
+
+  try {
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+    }).format(price);
+  } catch {
+    return numberFormat.format(price);
+  }
+}
+
 export function MarketplaceProductCard({ product }: Props) {
-    const image = product.images?.[0]?.url ?? product.imageUrl;
-    const secondaryImage = product.images?.[1]?.url;
-    const price = typeof product.price === "string" ? Number(product.price) : product.price;
+  const image = product.images?.[0]?.url ?? product.imageUrl;
+  const secondaryImage = product.images?.[1]?.url;
+  const price = getPrice(product.price);
+  const hasAR = Boolean(product.glbUrl || product.usdzUrl || product.hasAr || product.arUrl);
+  const isFeatured = product.featured ?? product.isFeatured ?? false;
+  const storeName = product.store?.name?.trim();
+  const storeSlug = product.store?.slug?.trim();
+  const canAddToCart = price !== null && Boolean(storeName && storeSlug);
 
-    const hasAR = Boolean(product.arUrl);
+  const track = (name: string, props?: Record<string, unknown>) => {
+    try {
+      window.dispatchEvent(new CustomEvent("ar-event", { detail: { name, props } }));
+    } catch {
+      // Analytics must never prevent product navigation.
+    }
+  };
 
-    const track = (name: string, props?: Record<string, unknown>) => {
-        try {
-            window.dispatchEvent(new CustomEvent("ar-event", { detail: { name, props } }));
-        } catch (e) {
-            // ignore
-        }
-    };
+  return (
+    <article className="group relative flex min-w-[280px] w-full max-w-[360px] snap-start flex-col">
+      <Link
+        href={`/productos/${product.slug}`}
+        onClick={() => track("market_card_click", { slug: product.slug, hasAr: hasAR, store: storeSlug })}
+        className="relative block aspect-[4/5] w-full overflow-hidden rounded-md bg-stone-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        aria-label={`Ver ${product.name}`}
+      >
+        {image ? (
+          <>
+            <img
+              src={image}
+              alt={product.name}
+              loading="lazy"
+              decoding="async"
+              className={`absolute inset-0 h-full w-full object-cover mix-blend-multiply transition-all duration-500 ease-out ${secondaryImage ? "group-hover:opacity-0" : "group-hover:scale-105"}`}
+            />
+            {secondaryImage && (
+              <img
+                src={secondaryImage}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 ease-out group-hover:scale-105 group-hover:opacity-100"
+              />
+            )}
+          </>
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-slate-500">Imagen no disponible</div>
+        )}
 
-    return (
-        <div className="group relative flex flex-col min-w-[280px] w-full max-w-[360px] snap-start">
-            {/* Image Container */}
-            <Link
-                href={`/productos/${product.slug}`}
-                onClick={() => track("market_card_click", { slug: product.slug, hasAr: hasAR, store: product.store?.slug })}
-                className="relative block w-full overflow-hidden rounded-md bg-stone-50 aspect-[4/5]"
-            >
-                {image ? (
-                    <>
-                        <img
-                            src={image}
-                            alt={product.name}
-                            loading="lazy"
-                            decoding="async"
-                            className={`absolute inset-0 h-full w-full object-cover mix-blend-multiply transition-all duration-500 ease-out group-hover:scale-105 ${secondaryImage ? 'group-hover:opacity-0' : ''}`}
-                        />
-                        {secondaryImage && (
-                            <img
-                                src={secondaryImage}
-                                alt={`${product.name} vista alternativa`}
-                                loading="lazy"
-                                decoding="async"
-                                className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-105"
-                            />
-                        )}
-                    </>
-                ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-slate-400">Sin imagen</div>
-                )}
-
-                {/* Badges Overlay */}
-                <div className="absolute left-0 top-0 flex flex-col gap-2">
-                    {product.featured && (
-                        <div className="bg-[#ffe815] px-3 py-1 text-[11px] font-bold text-slate-900 tracking-wide">
-                            Más vendido
-                        </div>
-                    )}
-                    {hasAR && (
-                        <div className="ml-3 mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-sm">
-                            <Cuboid size={13} className="text-emerald-600" />
-                            Ver en 3D
-                        </div>
-                    )}
-                    {product.inStock === false && (
-                        <div className="ml-3 mt-3 inline-flex items-center rounded-full bg-slate-800/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-sm">
-                            Agotado
-                        </div>
-                    )}
-                </div>
-            </Link>
-
-            <div className="mt-5 flex flex-col gap-1 px-1">
-                {/* Status/Category */}
-                <div className="text-[13px] font-bold text-[#d24c00]">
-                    Novedad
-                </div>
-
-                {/* Title & Description */}
-                <div className="flex flex-col mb-1.5">
-                    <Link
-                        href={`/productos/${product.slug}`}
-                        className="text-base font-bold text-slate-900 leading-snug line-clamp-2 hover:text-primary transition-colors tracking-tight uppercase"
-                    >
-                        {product.name}
-                    </Link>
-                    <div className="text-[13px] text-slate-500 line-clamp-1 mt-0.5 font-medium">
-                        {product.category}
-                    </div>
-                </div>
-
-                {/* Price */}
-                <div className="text-[26px] font-black tracking-tight text-[#002f5e] flex items-start mt-1">
-                    {Math.floor(price ?? 0)}
-                    <span className="text-sm font-bold mt-1.5 ml-[1px]">
-                        ,{(price ?? 0) % 1 === 0 ? "00" : String(price?.toFixed(2)).split('.')[1]}€
-                    </span>
-                </div>
-
-                {/* Rating (Placeholder to match the design) */}
-                <div className="flex items-center gap-2 mt-1.5">
-                    <div className="flex text-[#002f5e]">
-                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                        <svg className="w-3.5 h-3.5 fill-current text-slate-300" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                    </div>
-                    <span className="text-sm font-medium text-slate-500">(42)</span>
-                </div>
-
-                {/* Persistent Action Buttons */}
-                <div className="flex items-center gap-3 mt-4">
-                    <AddToCartButton
-                        product={{
-                            id: product.id,
-                            slug: product.slug,
-                            name: product.name,
-                            price: price ?? 0,
-                            imageUrl: image ?? null,
-                            storeName: product.store?.name ?? "Sin tienda",
-                            storeSlug: product.store?.slug ?? "",
-                            storeWhatsapp: null,
-                        }}
-                        variant="compact"
-                        className="!h-10 !w-10 !bg-[#0058a3] !text-white hover:!bg-[#004f93] hover:scale-105 transition-all shadow-sm focus:ring-2 focus:ring-[#0058a3] focus:ring-offset-2 !border-0"
-                    />
-                    <FavoriteButton
-                        product={{
-                            id: product.id,
-                            slug: product.slug,
-                            name: product.name,
-                            price: price ?? 0,
-                            imageUrl: image,
-                            category: product.category,
-                            room: product.room,
-                            style: product.style,
-                            description: product.description,
-                            storeName: product.store?.name,
-                            storeSlug: product.store?.slug,
-                        }}
-                        size="md"
-                        className="!bg-slate-100 !text-slate-600 !border-transparent hover:!bg-slate-200 hover:!text-slate-800 shadow-sm"
-                    />
-                </div>
-            </div>
+        <div className="absolute left-0 top-0 flex flex-col gap-2">
+          {isFeatured && (
+            <span className="bg-[#ffe815] px-3 py-1 text-[11px] font-bold tracking-wide text-slate-900">Destacado</span>
+          )}
+          {hasAR && (
+            <span className="ml-3 mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-sm">
+              <Cuboid size={13} className="text-emerald-600" aria-hidden="true" />
+              Ver en 3D
+            </span>
+          )}
+          {product.inStock === false && (
+            <span className="ml-3 mt-3 inline-flex items-center rounded-full bg-slate-800/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-sm">
+              Agotado
+            </span>
+          )}
         </div>
-    );
+      </Link>
+
+      <div className="mt-5 flex flex-col gap-1 px-1">
+        <div className="mb-1.5 flex flex-col">
+          <Link
+            href={`/productos/${product.slug}`}
+            className="line-clamp-2 text-base font-bold uppercase leading-snug tracking-tight text-slate-900 transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {product.name}
+          </Link>
+          {product.category?.trim() && (
+            <p className="mt-0.5 line-clamp-1 text-[13px] font-medium text-slate-500">{product.category}</p>
+          )}
+        </div>
+
+        {price !== null ? (
+          <p className="mt-1 text-[26px] font-black tracking-tight text-[#002f5e]">{formatPrice(price, product.currency)}</p>
+        ) : (
+          <p className="mt-1 text-sm font-medium text-slate-600">A confirmar con la tienda</p>
+        )}
+
+        {price !== null && (
+          <div className="mt-4 flex items-center gap-3">
+            {canAddToCart && storeName && storeSlug && (
+              <AddToCartButton
+                product={{
+                  id: product.id,
+                  slug: product.slug,
+                  name: product.name,
+                  price,
+                  imageUrl: image ?? null,
+                  storeName,
+                  storeSlug,
+                  storeWhatsapp: product.store?.whatsapp ?? null,
+                }}
+                variant="compact"
+                className="!h-10 !w-10 !border-0 !bg-[#0058a3] !text-white shadow-sm transition-all hover:!bg-[#004f93] hover:scale-105 focus:ring-2 focus:ring-[#0058a3] focus:ring-offset-2"
+              />
+            )}
+            <FavoriteButton
+              product={{
+                id: product.id,
+                slug: product.slug,
+                name: product.name,
+                price,
+                imageUrl: image,
+                category: product.category,
+                room: product.room,
+                style: product.style,
+                description: product.description,
+                storeName: storeName ?? null,
+                storeSlug: storeSlug ?? null,
+              }}
+              size="md"
+              className="!border-transparent !bg-slate-100 !text-slate-600 shadow-sm hover:!bg-slate-200 hover:!text-slate-800"
+            />
+          </div>
+        )}
+      </div>
+    </article>
+  );
 }

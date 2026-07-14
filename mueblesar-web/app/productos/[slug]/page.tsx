@@ -2,7 +2,7 @@ export const revalidate = 60;
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Star, Store, ChevronRight, Box, Truck, Shield, Clock, Package, Check } from "lucide-react";
+import { Star, Store, ChevronRight, Box } from "lucide-react";
 import { Container } from "@/app/components/layout/Container";
 import { ColorImageCarousel } from "@/app/components/media/ColorImageCarousel";
 import { FavoriteButton } from "@/app/components/favorites/FavoriteButton";
@@ -10,7 +10,6 @@ import { fetchProductBySlug, fetchProducts } from "@/app/lib/api";
 import { PDPViewTracker } from "@/app/components/products/PDPViewTracker";
 import { ProductCard } from "@/app/components/products/ProductCard";
 import { StickyAddToCart } from "@/app/components/products/StickyAddToCart";
-import { AddToCartButton } from "@/app/components/cart/AddToCartButton";
 import { ShareButton } from "@/app/components/products/ShareButton";
 import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
 import { ARPreview } from "@/app/components/products/ARPreview";
@@ -67,12 +66,6 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
 
   const related = (relatedData.items || []).filter((p: ProductListItem) => p.id !== typedProduct.id);
 
-  // WhatsApp message
-  const message = encodeURIComponent(
-    `Hola! Me interesa el ${typedProduct.name} que vi en Amobly. Precio: ${formatPrice(defaultVariant?.pricing.salePrice || 0)}. Está disponible?`
-  );
-  const waLink = store?.whatsapp ? `https://wa.me/${store.whatsapp}?text=${message}` : undefined;
-
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -87,9 +80,6 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
       "@type": "Offer",
       priceCurrency: "ARS",
       price: defaultVariant?.pricing.salePrice || 0,
-      availability: typedProduct.inventory.inStock
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
     },
     ...(typedProduct.reviews.averageRating > 0 && {
       aggregateRating: {
@@ -202,15 +192,9 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                       {formatPrice(defaultVariant.pricing.listPrice)}
                     </span>
                   )}
-                  {typedProduct.inventory.inStock ? (
-                    <span className="text-sm text-[var(--success-600)] font-medium">
-                      En stock
-                    </span>
-                  ) : (
-                    <span className="text-sm text-[var(--error-500)] font-medium">
-                      Agotado
-                    </span>
-                  )}
+                  <span className="text-sm text-[var(--gray-500)] font-medium">
+                    Disponibilidad a confirmar con la tienda
+                  </span>
                 </div>
 
                 {/* AR Badge */}
@@ -221,13 +205,6 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                   </div>
                 )}
 
-                {/* Envío gratis */}
-                {typedProduct.pricing.isFreeShipping && (
-                  <div className="mt-2 inline-flex items-center gap-2 text-sm text-[var(--success-600)]">
-                    <Truck className="w-4 h-4" />
-                    Envío gratis a todo el país
-                  </div>
-                )}
               </div>
 
               {/* Short Description */}
@@ -293,7 +270,7 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                 )}
 
                 {/* WhatsApp CTA - Primary */}
-                {store?.whatsapp && store?.id && (
+                {store?.id && (
                   <WhatsappInquiryButton
                     productId={typedProduct.id}
                     storeId={store.id}
@@ -305,21 +282,6 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                   />
                 )}
 
-                {/* Add to Inquiry List - Secondary */}
-                <AddToCartButton
-                  product={{
-                    id: typedProduct.id,
-                    slug: typedProduct.slug,
-                    name: typedProduct.name,
-                    price: defaultVariant?.pricing.salePrice || 0,
-                    imageUrl: typedProduct.media.images[0]?.url || null,
-                    storeName: store?.name || "Sin tienda",
-                    storeSlug: store?.slug || "",
-                    storeWhatsapp: store?.whatsapp || null,
-                  }}
-                  className="w-full !h-14 !rounded-xl !bg-white !border-2 !border-[var(--primary-600)] !text-[var(--primary-600)] hover:!bg-slate-50 !font-semibold !text-base transition-colors shadow-sm"
-                  disabled={!typedProduct.inventory.inStock}
-                />
               </div>
 
               {/* Secondary Actions */}
@@ -343,20 +305,22 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
               {/* Trust Badges */}
               <div className="mt-6 pt-6 border-t border-[var(--gray-100)] grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-lg font-semibold text-[var(--gray-900)]">{typedProduct.warranty.durationMonths}</p>
-                  <p className="text-xs text-[var(--gray-500)]">meses garantía</p>
+                  <p className="text-lg font-semibold text-[var(--gray-900)]">{typedProduct.warranty.durationMonths > 0 ? typedProduct.warranty.durationMonths : "A confirmar"}</p>
+                  <p className="text-xs text-[var(--gray-500)]">garantía</p>
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-[var(--gray-900)]">
-                    {typedProduct.logistics.deliveryTimeDays.min}-{typedProduct.logistics.deliveryTimeDays.max}
+                    {typedProduct.logistics.deliveryTimeDays.min > 0 || typedProduct.logistics.deliveryTimeDays.max > 0
+                      ? `${typedProduct.logistics.deliveryTimeDays.min}-${typedProduct.logistics.deliveryTimeDays.max}`
+                      : "A confirmar"}
                   </p>
-                  <p className="text-xs text-[var(--gray-500)]">días entrega</p>
+                  <p className="text-xs text-[var(--gray-500)]">entrega</p>
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-[var(--gray-900)]">
-                    {typedProduct.logistics.assembly.included ? 'Sí' : 'No'}
+                    {typedProduct.logistics.assembly.included ? 'Sí' : 'A confirmar'}
                   </p>
-                  <p className="text-xs text-[var(--gray-500)]">armado incluido</p>
+                  <p className="text-xs text-[var(--gray-500)]">armado</p>
                 </div>
               </div>
             </div>
@@ -431,13 +395,17 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                 <div className="flex justify-between py-2 border-b border-[var(--gray-200)]">
                   <dt className="text-sm text-[var(--gray-500)]">Garantía</dt>
                   <dd className="text-sm font-medium text-[var(--gray-900)]">
-                    {typedProduct.warranty.durationMonths} meses ({typedProduct.warranty.type === 'factory' ? 'fábrica' : typedProduct.warranty.type})
+                    {typedProduct.warranty.durationMonths > 0
+                      ? `${typedProduct.warranty.durationMonths} meses (${typedProduct.warranty.type === 'factory' ? 'fábrica' : typedProduct.warranty.type})`
+                      : 'A confirmar con la tienda'}
                   </dd>
                 </div>
                 <div className="flex justify-between py-2 border-b border-[var(--gray-200)]">
                   <dt className="text-sm text-[var(--gray-500)]">Entrega estimada</dt>
                   <dd className="text-sm font-medium text-[var(--gray-900)]">
-                    {typedProduct.logistics.deliveryTimeDays.min}-{typedProduct.logistics.deliveryTimeDays.max} días hábiles
+                    {typedProduct.logistics.deliveryTimeDays.min > 0 || typedProduct.logistics.deliveryTimeDays.max > 0
+                      ? `${typedProduct.logistics.deliveryTimeDays.min}-${typedProduct.logistics.deliveryTimeDays.max} días hábiles`
+                      : 'A confirmar con la tienda'}
                   </dd>
                 </div>
               </dl>
@@ -510,7 +478,7 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
           glbUrl: typedProduct.media.model3d?.glbUrl,
           usdzUrl: typedProduct.media.model3d?.usdzUrl,
         } : undefined}
-        disabled={!typedProduct.inventory.inStock}
+        disabled={false}
       />
     </div>
   );

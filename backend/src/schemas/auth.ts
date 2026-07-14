@@ -31,13 +31,18 @@ export const registerSchema = z.object({
 
 // Store registration schema (public)
 export const registerStoreSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().trim().email('Email inválido'),
   password: passwordSchema,
-  name: z.string().min(2, 'Nombre de la mueblería requerido'),
-  ownerName: z.string().min(2, 'Nombre del responsable requerido'),
-  whatsapp: z.string().regex(/^\+?\d{10,15}$/, 'WhatsApp debe ser un número válido'),
-  address: z.string().min(5, 'Dirección requerida'),
-  description: z.string().optional(),
+  name: z.string().trim().min(2, 'Nombre de la mueblería requerido'),
+  ownerName: z.string().trim().min(2, 'Nombre del responsable requerido'),
+  whatsapp: z.preprocess(
+    (value) => typeof value === 'string' ? value.replace(/\D/g, '') : value,
+    z.string()
+      .min(10, 'WhatsApp debe incluir código de país y número')
+      .max(15, 'WhatsApp debe tener como máximo 15 dígitos')
+  ),
+  address: z.string().trim().min(5, 'Dirección requerida'),
+  description: z.string().trim().optional(),
 });
 
 // Password reset schemas

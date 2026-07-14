@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { fetchProducts, fetchStores } from "@/app/lib/api";
+import type { ProductListItem, Store } from "@/types";
 
 // Simplified types for the search results
 type SearchResult = {
-  products: { id: number; name: string; slug: string; price: number; imageUrl: string | null }[];
-  stores: { id: number; name: string; slug: string; logoUrl: string | null }[];
+  products: ProductListItem[];
+  stores: Store[];
 };
 
 export function SearchBar() {
@@ -42,26 +44,13 @@ export function SearchBar() {
       setLoading(true);
       try {
         const [productsRes, storesRes] = await Promise.all([
-          fetch(`/api/products?q=${encodeURIComponent(query)}&pageSize=5`),
-          fetch(`/api/stores?q=${encodeURIComponent(query)}`),
+          fetchProducts({ q: query, pageSize: 5 }),
+          fetchStores({ q: query }),
         ]);
-        
-        let products = [];
-        let stores = [];
-        
-        if (productsRes.ok) {
-           const data = await productsRes.json();
-           products = data.items || [];
-        }
-        
-        if (storesRes.ok) {
-            const data = await storesRes.json();
-            stores = data.items || [];
-        }
 
         setResults({
-          products: products.slice(0, 5),
-          stores: stores.slice(0, 3),
+          products: productsRes.items.slice(0, 5),
+          stores: storesRes.items.slice(0, 3),
         });
         setShowDropdown(true);
       } catch (err) {

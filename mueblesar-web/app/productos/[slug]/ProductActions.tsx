@@ -1,7 +1,7 @@
 "use client";
 
-import { Box, ShoppingCart, Smartphone } from "lucide-react";
 import { AddToCartButton } from "@/app/components/cart/AddToCartButton";
+import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
 import { ARPreview } from "@/app/components/products/ARPreview";
 
 interface ProductActionsProps {
@@ -34,7 +34,6 @@ export function ProductActions({
   storeName,
   storeSlug,
   storeWhatsapp,
-  waLink,
   arLink,
   glbLink,
   usdzLink,
@@ -43,9 +42,19 @@ export function ProductActions({
   heightCm,
   disabled = false,
 }: ProductActionsProps) {
+  const product = {
+    id: productId,
+    slug: productSlug,
+    name: productName,
+    price: productPrice,
+    imageUrl: productImage ?? null,
+    storeName: storeName ?? "Muebleria",
+    storeSlug: storeSlug ?? "",
+    storeWhatsapp: storeWhatsapp ?? null,
+  };
+
   return (
     <div className="space-y-3">
-      {/* AR Button - Orange accent */}
       {(arLink || glbLink) && (
         <div className="w-full">
           <ARPreview
@@ -62,21 +71,24 @@ export function ProductActions({
         </div>
       )}
 
-      {/* Add to Cart Button - Dark */}
-      <AddToCartButton
-        product={{
-          id: productId,
-          slug: productSlug,
-          name: productName,
-          price: productPrice,
-          imageUrl: productImage ?? null,
-          storeName: storeName ?? "Sin tienda",
-          storeSlug: storeSlug ?? "",
-          storeWhatsapp: storeWhatsapp ?? null,
-        }}
-        className="w-full !h-12 !rounded-xl !bg-[#0f172a] !font-bold text-white shadow-sm transition-all hover:!bg-[#1e293b] active:scale-[0.98]"
-        disabled={disabled}
-      />
+      {storeId ? (
+        <WhatsappInquiryButton
+          productId={productId}
+          storeId={storeId}
+          productName={productName}
+          productPrice={productPrice}
+          selectedVariant={null}
+          storeWhatsapp={storeWhatsapp}
+          disabled={disabled}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        />
+      ) : (
+        <AddToCartButton
+          product={product}
+          className="h-12 w-full rounded-xl bg-[#0f172a] font-bold text-white shadow-sm hover:bg-[#1e293b]"
+          disabled={disabled}
+        />
+      )}
     </div>
   );
 }

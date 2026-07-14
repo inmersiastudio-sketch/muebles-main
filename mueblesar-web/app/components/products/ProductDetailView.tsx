@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ColorImageCarousel, type ImageWithType } from "../media/ColorImageCarousel";
 import { ProductInfoTabs } from "./ProductInfoTabs";
 
@@ -51,6 +51,10 @@ export function ProductDetailView({
 }: Props) {
     const [activeColor, setActiveColor] = useState<string | null>(initialColor ?? color ?? null);
 
+    useEffect(() => {
+        setActiveColor(initialColor ?? color ?? null);
+    }, [color, initialColor]);
+
     return (
         <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
             <ColorImageCarousel
@@ -63,7 +67,7 @@ export function ProductDetailView({
                 onColorChange={(col) => setActiveColor(col)}
             />
 
-            <div className="space-y-6 rounded-2xl border border-slate-100 bg-white p-6 md:p-8 shadow-sm">
+            <section className="space-y-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm md:p-8" aria-label="Información del producto">
                 {children}
 
                 <ProductInfoTabs
@@ -78,7 +82,7 @@ export function ProductDetailView({
                     heightCm={heightCm}
                     weightKg={weightKg}
                 />
-            </div>
+            </section>
         </div>
     );
 }

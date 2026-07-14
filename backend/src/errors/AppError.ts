@@ -13,6 +13,7 @@ export enum ErrorCode {
   RATE_LIMITED = 'RATE_LIMITED',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED',
+  EMAIL_DELIVERY_UNAVAILABLE = 'EMAIL_DELIVERY_UNAVAILABLE',
   TOKEN_EXPIRED = 'TOKEN_EXPIRED',
   TOKEN_INVALID = 'TOKEN_INVALID',
 }
@@ -79,6 +80,15 @@ export const Errors = {
 
   emailNotVerified: (message = 'Email no verificado') =>
     new AppError({ code: ErrorCode.EMAIL_NOT_VERIFIED, message, statusCode: 403 }),
+
+  emailDeliveryUnavailable: (
+    message = 'El servicio de correo no está disponible. Intentá nuevamente más tarde.',
+  ) =>
+    new AppError({
+      code: ErrorCode.EMAIL_DELIVERY_UNAVAILABLE,
+      message,
+      statusCode: 503,
+    }),
 
   tokenExpired: (message = 'Token expirado') =>
     new AppError({ code: ErrorCode.TOKEN_EXPIRED, message, statusCode: 400 }),

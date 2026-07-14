@@ -3,12 +3,11 @@ export const revalidate = 60;
 import { Suspense } from "react";
 import Link from "next/link";
 import { ProductCard } from "./components/products/ProductCard";
-import { HeroImage } from "./components/HeroImage";
 import { Container } from "./components/layout/Container";
 import { fetchProducts } from "./lib/api";
-import { ArrowRight, Truck, Shield, Clock } from "lucide-react";
-import type { Product, ProductListItem } from "@/types";
-import { ProductGridSkeleton, CategoriesSkeleton, HeroSkeleton } from "./components/ui/Skeleton";
+import { ArrowRight, Cuboid, MapPin, MessageCircle } from "lucide-react";
+import type { ProductListItem } from "@/types";
+import { ProductGridSkeleton } from "./components/ui/Skeleton";
 
 const featuredRooms = [
   { label: "Living", href: "/productos?room=living", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=600" },
@@ -34,7 +33,7 @@ async function ProductsSection() {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-sm text-[var(--gray-500)]">No hay productos disponibles en este momento.</p>
-        <a href="/mueblerias" className="mt-3 text-sm font-medium text-[var(--primary-600)] hover:underline">Ver mueblerías →</a>
+        <Link href="/mueblerias" className="mt-3 text-sm font-medium text-[var(--primary-600)] hover:underline">Ver mueblerías →</Link>
       </div>
     );
   }
@@ -82,7 +81,7 @@ export default function Home() {
               </h1>
 
               <p className="mt-4 text-base leading-relaxed text-[var(--gray-600)] lg:text-lg lg:max-w-xl">
-                Descubrí piezas únicas de alta gama para transformar cada rincón de tu casa. Calidad y diseño en un solo lugar.
+                Descubrí muebles de tiendas locales, compará opciones y consultá directo por WhatsApp. Cuando el producto tiene 3D, también podés verlo en tu espacio con realidad aumentada.
               </p>
 
               {/* CTA Buttons */}
@@ -138,16 +137,16 @@ export default function Home() {
         <Container>
           <div className="flex overflow-x-auto py-3 gap-4 sm:gap-0 sm:py-4 sm:justify-around">
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Truck className="h-4 w-4 text-[var(--success-600)] sm:h-5 sm:w-5" />
-              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">Envío gratis</span>
+              <MessageCircle className="h-4 w-4 text-[var(--success-600)] sm:h-5 sm:w-5" />
+              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">Consulta directa</span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Shield className="h-4 w-4 text-[var(--primary-600)] sm:h-5 sm:w-5" />
-              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">Garantía 12 meses</span>
+              <MapPin className="h-4 w-4 text-[var(--primary-600)] sm:h-5 sm:w-5" />
+              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">Tiendas locales</span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Clock className="h-4 w-4 text-[var(--warning-500)] sm:h-5 sm:w-5" />
-              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">Entrega 24-48hs</span>
+              <Cuboid className="h-4 w-4 text-[var(--warning-500)] sm:h-5 sm:w-5" />
+              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">3D y AR</span>
             </div>
           </div>
         </Container>

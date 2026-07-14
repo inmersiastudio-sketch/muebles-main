@@ -7,11 +7,26 @@ import { AuthenticatedRequest, requireAuth, requireRole } from "../lib/auth.js";
 const router = Router();
 router.use(requireAuth, requireRole([UserRole.SUPER_ADMIN]));
 
-// simple key/value store
+const DEFAULT_SETTINGS = {
+  tolerance: "0.1",
+  storeSlug: "",
+  storeWhatsapp: "",
+} as const;
+
+type SettingKey = keyof typeof DEFAULT_SETTINGS;
 
 router.get("/", async (req, res) => {
   try {
-    const result: Record<string, string> = {};
+    const settings = await prisma.systemSetting.findMany({
+      where: { key: { in: Object.keys(DEFAULT_SETTINGS) } },
+      select: { key: true, value: true },
+    });
+    const result: Record<SettingKey, string> = { ...DEFAULT_SETTINGS };
+    for (const setting of settings) {
+      if (setting.key in result) {
+        result[setting.key as SettingKey] = setting.value;
+      }
+    }
     return res.json(result);
   } catch (err) {
     return res.status(500).json({ error: "cannot fetch settings", detail: (err as Error).message });
@@ -64,8 +79,13 @@ router.post("/", async (req, res) => {
   }
   try {
     const { key, value } = parsed.data;
-    const up = { key, value };
-    return res.json(up);
+    const setting = await prisma.systemSetting.upsert({
+      where: { key },
+      create: { key, value, updatedById: (req as AuthenticatedRequest).user?.id },
+      update: { value, updatedById: (req as AuthenticatedRequest).user?.id },
+      select: { key: true, value: true, updatedAt: true },
+    });
+    return res.json(setting);
   } catch (err) {
     return res.status(500).json({ error: "cannot save setting", detail: (err as Error).message });
   }

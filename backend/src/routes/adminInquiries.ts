@@ -1,45 +1,46 @@
-import { Router, Request, Response } from 'express';
-import { prisma } from '../lib/prisma.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
+import { Router } from 'express';
+import { UserRole, type Prisma } from '@prisma/client';
+import { Errors } from '../errors/AppError.js';
 import { requireAuth, requireRole, type AuthenticatedRequest } from '../lib/auth.js';
-import { UserRole } from '@prisma/client';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { InquiryStatsQuerySchema } from '../schemas/inquiry.js';
+import { getInquiryOperationalStats } from '../services/InquiryAnalyticsService.js';
 
 const router = Router();
 
 router.use(requireAuth, requireRole([UserRole.SUPER_ADMIN, UserRole.STORE_OWNER]));
 
+function getStatsScope(
+  req: AuthenticatedRequest,
+  requestedStoreId?: number,
+): Prisma.ProductInquiryWhereInput {
+  const user = req.user!;
+
+  if (user.role === UserRole.STORE_OWNER) {
+    if (!user.storeId) {
+      throw Errors.forbidden('No tienes una tienda asignada');
+    }
+
+    if (requestedStoreId && requestedStoreId !== user.storeId) {
+      throw Errors.forbidden('No puedes consultar metricas de otra tienda');
+    }
+
+    return { storeId: user.storeId };
+  }
+
+  return requestedStoreId ? { storeId: requestedStoreId } : {};
+}
+
 /**
- * GET /api/admin/inquiries/stats
- * Returns aggregated inquiry stats for analytics
+ * GET /api/admin/inquiries/stats?storeId=:storeId
+ * Platform admins can aggregate all stores or filter one. Store owners are always store-scoped.
  */
-router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
-  const user = (req as AuthenticatedRequest).user!;
-  const storeFilter = user.role === UserRole.STORE_OWNER ? { storeId: user.storeId! } : {};
+router.get('/stats', asyncHandler(async (req: AuthenticatedRequest, res) => {
+  const query = InquiryStatsQuerySchema.parse(req.query);
+  const stats = await getInquiryOperationalStats(getStatsScope(req, query.storeId));
 
-  const [total, byStatusRaw, byResultRaw, soldCount] = await Promise.all([
-    prisma.productInquiry.count({ where: storeFilter }),
-    prisma.productInquiry.groupBy({
-      by: ['status'],
-      _count: { id: true },
-      where: storeFilter,
-    }),
-    prisma.productInquiry.groupBy({
-      by: ['result'],
-      _count: { id: true },
-      where: { ...storeFilter, result: { not: null } },
-    }),
-    prisma.productInquiry.count({ where: { ...storeFilter, result: 'SOLD' } }),
-  ]);
-
-  const closed = byStatusRaw.find((s) => s.status === 'CLOSED')?._count.id ?? 0;
-  const conversionRate = closed > 0 ? soldCount / closed : 0;
-
-  const byStatus = Object.fromEntries(byStatusRaw.map((s) => [s.status, s._count.id]));
-  const byResult = Object.fromEntries(
-    byResultRaw.filter((r) => r.result).map((r) => [r.result!, r._count.id])
-  );
-
-  res.json({ total, byStatus, byResult, conversionRate, soldInquiries: soldCount });
+  // The top-level fields preserve the existing analytics contract while data is the canonical envelope.
+  res.json({ success: true, data: stats, ...stats });
 }));
 
 export default router;

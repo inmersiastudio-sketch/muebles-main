@@ -754,3 +754,12 @@ model SubscriptionLog {
   @@map("subscription_logs")
 }
 
+model SystemSetting {
+  key         String   @id
+  value       String
+  updatedById Int?
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+

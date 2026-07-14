@@ -154,17 +154,6 @@ export function ARPreview({
     resetTracking();
   }, [open, resetTracking]);
 
-  // Cleanup on close
-  useEffect(() => {
-    if (open) return;
-
-    if (xrSessionRef.current) {
-      xrSessionRef.current.end?.();
-    }
-    cleanupXRSession();
-    resetMeasure();
-  }, [open]);
-
   function resetMeasure() {
     setMeasurePoints({});
     setMeasureDistance(null);
@@ -193,6 +182,17 @@ export function ARPreview({
     setArSessionActive(false);
     setIsMeasuring(false);
   }
+
+  // Cleanup on close
+  useEffect(() => {
+    if (open) return;
+
+    if (xrSessionRef.current) {
+      xrSessionRef.current.end?.();
+    }
+    cleanupXRSession();
+    resetMeasure();
+  }, [open]);
 
   async function setupHitTest(session: NonNullable<typeof xrSessionRef.current>) {
     if (!session?.requestReferenceSpace || !session?.requestHitTestSource) {

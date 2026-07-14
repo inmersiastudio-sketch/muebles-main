@@ -14,11 +14,21 @@ function VerificarEmailContent() {
     const verified = searchParams.get("verified");
     const token = searchParams.get("token");
     const email = searchParams.get("email");
+    const deliveryUnavailable = searchParams.get("delivery") === "unavailable";
 
     // If backend redirected with ?verified=1, show success immediately
     const initialStatus = verified === "1" ? "success" : token ? "verifying" : "pending";
     const [status, setStatus] = useState<"pending" | "verifying" | "success" | "error">(initialStatus);
-    const [message, setMessage] = useState(verified === "1" ? "¡Email verificado exitosamente!" : "");
+    const [message, setMessage] = useState(
+        verified === "1"
+            ? "¡Email verificado exitosamente!"
+            : deliveryUnavailable
+                ? "No pudimos enviar el email de verificación. Intentá reenviarlo más tarde."
+                : "",
+    );
+    const [messageTone, setMessageTone] = useState<"success" | "error">(
+        deliveryUnavailable ? "error" : "success",
+    );
     const [resending, setResending] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -29,10 +39,23 @@ function VerificarEmailContent() {
         const verify = async () => {
             try {
                 // Navigating to the backend URL will trigger a redirect back here with ?verified=1
-                window.location.href = `${API_BASE}/api/auth/verify-email?token=${token}`;
-            } catch {
+                const response = await fetch(`${API_BASE}/api/auth/verify-email`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token }),
+                });
+
+                if (!response.ok) {
+                    throw new Error("No se pudo verificar el email");
+                }
+
+                setStatus("success");
+                setMessage("Tu email fue verificado exitosamente. Ya podés iniciar sesión.");
+                setMessageTone("success");
+            } catch (error) {
                 setStatus("error");
-                setMessage("Error de conexión. Intentá nuevamente.");
+                setMessage(error instanceof Error ? error.message : "Error de conexión. Intentá nuevamente.");
+                setMessageTone("error");
             }
         };
 
@@ -57,14 +80,18 @@ function VerificarEmailContent() {
                 body: JSON.stringify({ email }),
             });
 
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                setMessage("Email de verificación reenviado. Revisá tu bandeja de entrada.");
+                setMessage(data.message || "Email de verificación reenviado. Revisá tu bandeja de entrada.");
+                setMessageTone("success");
                 setResendCooldown(60); // 60 second cooldown
             } else {
-                setMessage("No se pudo reenviar. Intentá más tarde.");
+                setMessage(data.message || "No se pudo reenviar. Intentá más tarde.");
+                setMessageTone("error");
             }
         } catch {
             setMessage("Error de conexión.");
+            setMessageTone("error");
         } finally {
             setResending(false);
         }
@@ -95,7 +122,9 @@ function VerificarEmailContent() {
                             </p>
 
                             {message && (
-                                <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                                <div className={`mb-4 rounded-lg border p-3 text-sm ${messageTone === "success"
+                                    ? "border-green-200 bg-green-50 text-green-700"
+                                    : "border-red-200 bg-red-50 text-red-700"}`}>
                                     {message}
                                 </div>
                             )}

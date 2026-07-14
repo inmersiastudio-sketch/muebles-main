@@ -225,6 +225,7 @@ export interface ProductListItem {
   store?: {
     name: string;
     slug: string;
+    whatsapp?: string | null;
   };
   inStock: boolean;
   hasDiscount?: boolean;

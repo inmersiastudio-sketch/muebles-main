@@ -44,7 +44,7 @@ export function CreditPackages({ currentCredits, apiBase }: Props) {
   const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handlePurchase = async (packId: string, credits: number, amount: number) => {
+  const handlePurchase = async (packId: string) => {
     setLoadingPackId(packId);
     setError(null);
 
@@ -55,7 +55,7 @@ export function CreditPackages({ currentCredits, apiBase }: Props) {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ credits, amount }),
+        body: JSON.stringify({ packageId: packId }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -156,7 +156,7 @@ export function CreditPackages({ currentCredits, apiBase }: Props) {
 
               <button
                 type="button"
-                onClick={() => handlePurchase(pack.id, pack.credits, pack.price)}
+                onClick={() => handlePurchase(pack.id)}
                 disabled={loadingPackId !== null}
                 className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white transition-colors ${
                   pack.popular ? "bg-[#0058a3] hover:bg-[#004f93]" : "bg-neutral-900 hover:bg-black"

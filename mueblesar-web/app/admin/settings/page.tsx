@@ -1,222 +1,194 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Check, Clipboard, Loader2, RefreshCw, Save, Sparkles, Store } from "lucide-react";
 import { useAdmin } from "../layout";
-import { Settings, Save, Loader2, Store, Sliders, Globe, Link as LinkIcon, Copy, Check } from "lucide-react";
+import type { StoreSettings } from "@/app/lib/admin.types";
+
+type StoreSettingsResponse = { success: boolean; data: StoreSettings };
+
+function responseMessage(response: Response, fallback: string) {
+  if (response.status === 401) return "Tu sesion vencio. Volve a iniciar sesion.";
+  if (response.status === 403) return "No tenes permisos para configurar esta tienda.";
+  return response
+    .json()
+    .then((data: { error?: string; message?: string }) => data.error || data.message || fallback)
+    .catch(() => fallback);
+}
+
+const textFields: Array<{ key: keyof StoreSettings; label: string; type?: string; placeholder?: string }> = [
+  { key: "name", label: "Nombre comercial" },
+  { key: "logoUrl", label: "URL del logo", type: "url" },
+  { key: "whatsapp", label: "WhatsApp", type: "tel" },
+  { key: "phone", label: "Telefono", type: "tel" },
+  { key: "email", label: "Email de contacto", type: "email" },
+  { key: "website", label: "Sitio web", type: "url" },
+  { key: "address", label: "Direccion" },
+  { key: "city", label: "Ciudad" },
+  { key: "province", label: "Provincia" },
+  { key: "country", label: "Pais" },
+  { key: "socialInstagram", label: "Instagram" },
+  { key: "socialFacebook", label: "Facebook" },
+];
 
 export default function SettingsPage() {
-    const { user, apiBase } = useAdmin();
-    const [settings, setSettings] = useState<Record<string, string>>({});
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState<string | null>(null);
+  const { user, apiBase } = useAdmin();
+  const [settings, setSettings] = useState<StoreSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [generatingSlug, setGeneratingSlug] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-    const loadSettings = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await fetch(`${apiBase}/api/admin/settings`, { credentials: "include" });
-            if (res.ok) {
-                const data = await res.json();
-                setSettings(data);
-            }
-        } catch { }
-        finally { setLoading(false); }
-    }, [apiBase]);
+  const loadSettings = useCallback(async () => {
+    if (!user?.storeId) {
+      setSettings(null);
+      setLoading(false);
+      return;
+    }
 
-    useEffect(() => { loadSettings(); }, [loadSettings]);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBase}/api/stores/${user.storeId}/settings`, { credentials: "include" });
+      if (!response.ok) throw new Error(await responseMessage(response, "No se pudo cargar la configuracion de la tienda."));
+      const payload = (await response.json()) as StoreSettingsResponse;
+      if (!payload.data) throw new Error("La API no devolvio una configuracion de tienda.");
+      setSettings(payload.data);
+    } catch (loadError) {
+      setSettings(null);
+      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar la configuracion de la tienda.");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBase, user?.storeId]);
 
-    const saveSetting = async (key: string, value: string) => {
-        setSaving(key);
-        try {
-            await fetch(`${apiBase}/api/admin/settings`, {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ key, value }),
-            });
-            setSettings((prev) => ({ ...prev, [key]: value }));
-        } catch { }
-        finally { setSaving(null); }
-    };
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
+  const updateField = (key: keyof StoreSettings, value: string) => {
+    setSettings((current) => current ? { ...current, [key]: value } : current);
+    setNotice(null);
+  };
+
+  const saveSettings = async () => {
+    if (!settings || !user?.storeId) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(`${apiBase}/api/stores/${user.storeId}/settings`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug: settings.slug,
+          name: settings.name,
+          description: settings.description || "",
+          logoUrl: settings.logoUrl || "",
+          whatsapp: settings.whatsapp || "",
+          phone: settings.phone || "",
+          email: settings.email || "",
+          website: settings.website || "",
+          address: settings.address || "",
+          city: settings.city || "",
+          province: settings.province || "",
+          country: settings.country || "",
+          socialInstagram: settings.socialInstagram || "",
+          socialFacebook: settings.socialFacebook || "",
+        }),
+      });
+      if (!response.ok) throw new Error(await responseMessage(response, "No se pudo guardar la configuracion."));
+      const payload = (await response.json()) as { data?: StoreSettings };
+      if (payload.data) setSettings(payload.data);
+      setNotice("Configuracion guardada.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "No se pudo guardar la configuracion.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const generateSlug = async () => {
+    if (!user?.storeId) return;
+    setGeneratingSlug(true);
+    setError(null);
+    try {
+      const response = await fetch(`${apiBase}/api/stores/${user.storeId}/generate-slug`, { method: "POST", credentials: "include" });
+      if (!response.ok) throw new Error(await responseMessage(response, "No se pudo generar la URL."));
+      const payload = (await response.json()) as { data?: { generatedSlug?: string } };
+      if (!payload.data?.generatedSlug) throw new Error("La API no devolvio una URL valida.");
+      updateField("slug", payload.data.generatedSlug);
+    } catch (slugError) {
+      setError(slugError instanceof Error ? slugError.message : "No se pudo generar la URL.");
+    } finally {
+      setGeneratingSlug(false);
+    }
+  };
+
+  const copyCatalogUrl = async () => {
+    if (!settings?.slug) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/catalog/${settings.slug}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError("No se pudo copiar el enlace.");
+    }
+  };
+
+  if (!user) {
+    return <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Necesitas una sesion activa para configurar una tienda.</div>;
+  }
+
+  if (!user.storeId) {
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-extrabold text-slate-900">Configuración</h1>
-                <p className="text-sm text-slate-500 mt-0.5">Ajustes generales de la plataforma y tu tienda</p>
-            </div>
-
-            {loading ? (
-                <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="rounded-2xl border border-slate-200 bg-white p-6 animate-pulse">
-                            <div className="h-4 w-40 bg-slate-200 rounded mb-4" />
-                            <div className="h-10 w-full bg-slate-100 rounded-xl" />
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {/* AR Tolerance */}
-                    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-[#0058a3]/10 flex items-center justify-center">
-                                <Sliders size={18} className="text-[#0058a3]" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900">Validación de modelos AR</h3>
-                                <p className="text-xs text-slate-500">Tolerancia de escala para la validación automática</p>
-                            </div>
-                        </div>
-                        <div className="px-6 py-4">
-                            <div className="flex items-end gap-3">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Tolerancia (0–1)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        max="1"
-                                        value={settings.tolerance ?? "0.05"}
-                                        onChange={(e) => setSettings((s) => ({ ...s, tolerance: e.target.value }))}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3] focus:ring-2 focus:ring-[#0058a3]/10 transition-all"
-                                    />
-                                    <p className="text-[11px] text-slate-500 mt-1">
-                                        Valores más altos permiten mayor diferencia entre las dimensiones del producto y el modelo 3D.
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => saveSetting("tolerance", settings.tolerance ?? "0.05")}
-                                    disabled={saving === "tolerance"}
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0058a3] text-white text-sm font-bold hover:bg-[#004f93] transition-colors disabled:opacity-50"
-                                >
-                                    {saving === "tolerance" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                    Guardar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Catálogo Compartible */}
-                    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                                <LinkIcon size={18} className="text-emerald-600" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900">Catálogo Compartible</h3>
-                                <p className="text-xs text-slate-500">Configura tu catálogo público personalizado</p>
-                            </div>
-                        </div>
-                        <div className="px-6 py-4 space-y-4">
-                            {/* Custom Slug */}
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-                                    URL personalizada
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-slate-500 bg-slate-50 px-3 py-2.5 rounded-l-xl border border-r-0 border-slate-200">
-                                        amobly.com/catalog/
-                                    </span>
-                                    <input
-                                        type="text"
-                                        value={settings.storeSlug || ""}
-                                        onChange={(e) => setSettings((s) => ({ ...s, storeSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") }))}
-                                        placeholder="tu-tienda"
-                                        className="flex-1 px-4 py-2.5 rounded-r-xl border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3] focus:ring-2 focus:ring-[#0058a3]/10 transition-all"
-                                    />
-                                </div>
-                                <p className="text-[11px] text-slate-500 mt-1">
-                                    Solo letras minúsculas, números y guiones
-                                </p>
-                            </div>
-
-                            {/* WhatsApp */}
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-                                    WhatsApp
-                                </label>
-                                <input
-                                    type="tel"
-                                    value={settings.storeWhatsapp || ""}
-                                    onChange={(e) => setSettings((s) => ({ ...s, storeWhatsapp: e.target.value }))}
-                                    placeholder="5491123456789"
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3] focus:ring-2 focus:ring-[#0058a3]/10 transition-all"
-                                />
-                                <p className="text-[11px] text-slate-500 mt-1">
-                                    Número con código de país, sin espacios ni símbolos
-                                </p>
-                            </div>
-
-                            {/* Preview Link */}
-                            {(settings.storeSlug || settings.storeWhatsapp) && (
-                                <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
-                                    <p className="text-xs font-bold text-emerald-800 mb-2">Vista previa de tu catálogo:</p>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="text"
-                                            readOnly
-                                            value={`${typeof window !== "undefined" ? window.location.origin : ""}/catalog/${settings.storeSlug || "tu-tienda"}`}
-                                            className="flex-1 px-3 py-2 rounded-lg border border-emerald-200 bg-white text-sm text-emerald-900"
-                                        />
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(`${typeof window !== "undefined" ? window.location.origin : ""}/catalog/${settings.storeSlug || "tu-tienda"}`);
-                                            }}
-                                            className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                                            title="Copiar enlace"
-                                        >
-                                            <Copy size={16} />
-                                        </button>
-                                        <a
-                                            href={`/catalog/${settings.storeSlug || "tu-tienda"}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                                            title="Ver catálogo"
-                                        >
-                                            <Check size={16} />
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
-
-                            <button
-                                onClick={() => {
-                                    saveSetting("storeSlug", settings.storeSlug || "");
-                                    saveSetting("storeWhatsapp", settings.storeWhatsapp || "");
-                                }}
-                                disabled={saving === "storeSlug" || saving === "storeWhatsapp"}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0058a3] text-white text-sm font-bold hover:bg-[#004f93] transition-colors disabled:opacity-50"
-                            >
-                                {saving === "storeSlug" || saving === "storeWhatsapp" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                Guardar
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Integrations — placeholder */}
-                    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                                <Globe size={18} className="text-violet-600" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900">Integraciones</h3>
-                                <p className="text-xs text-slate-500">WhatsApp Business, Google Analytics, API Keys</p>
-                            </div>
-                        </div>
-                        <div className="px-6 py-8 flex flex-col items-center text-center">
-                            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3 opacity-50">
-                                <Globe size={24} className="text-slate-400" />
-                            </div>
-                            <p className="text-sm font-bold text-slate-900 mb-1">En Desarrollo</p>
-                            <p className="text-xs text-slate-500 max-w-xs">
-                                Conectá tu mueblería con WhatsApp Business, Google Analytics y generá API Keys propias.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+      <div className="space-y-4">
+        <div><h1 className="text-2xl font-extrabold text-slate-900">Configuracion</h1><p className="mt-0.5 text-sm text-slate-500">Ajustes operativos de la tienda.</p></div>
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center"><Store size={30} className="mx-auto mb-3 text-slate-300" /><h2 className="font-bold text-slate-900">No hay una tienda asignada</h2><p className="mt-1 text-sm text-slate-500">La API necesita una tienda asociada a tu sesion para cargar y guardar estos ajustes.</p></div>
+      </div>
     );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div><h1 className="text-2xl font-extrabold text-slate-900">Configuracion de tienda</h1><p className="mt-0.5 text-sm text-slate-500">Datos publicos y canales de contacto del catalogo.</p></div>
+        <div className="flex gap-2">
+          <button type="button" onClick={loadSettings} disabled={loading || saving} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Actualizar</button>
+          <button type="button" onClick={saveSettings} disabled={!settings || loading || saving} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0058a3] px-3 text-sm font-bold text-white hover:bg-[#004f93] disabled:opacity-50">{saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Guardar</button>
+        </div>
+      </div>
+
+      {error && <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800"><span>{error}</span><button type="button" onClick={loadSettings} className="underline underline-offset-2">Reintentar</button></div>}
+      {notice && <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800"><Check size={16} />{notice}</div>}
+
+      {loading ? (
+        <div className="flex min-h-64 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-500"><Loader2 size={18} className="animate-spin" /> Cargando configuracion...</div>
+      ) : settings ? (
+        <>
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-5 py-4"><h2 className="font-bold text-slate-900">Identidad y catalogo</h2><p className="mt-0.5 text-sm text-slate-500">La URL se publica al guardar los cambios.</p></div>
+            <div className="grid gap-4 p-5 md:grid-cols-2">
+              <label className="block text-sm font-semibold text-slate-700">Nombre comercial<input value={settings.name || ""} onChange={(event) => updateField("name", event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-[#0058a3]" /></label>
+              <label className="block text-sm font-semibold text-slate-700">URL del catalogo<div className="mt-1.5 flex gap-2"><input value={settings.slug || ""} onChange={(event) => updateField("slug", event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-[#0058a3]" /><button type="button" onClick={generateSlug} disabled={generatingSlug} className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">{generatingSlug ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Generar</button></div></label>
+              <label className="block text-sm font-semibold text-slate-700 md:col-span-2">Descripcion<textarea value={settings.description || ""} onChange={(event) => updateField("description", event.target.value)} rows={3} className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-[#0058a3]" /></label>
+              {settings.slug && <div className="md:col-span-2"><p className="text-sm font-semibold text-slate-700">Enlace publico</p><div className="mt-1.5 flex gap-2"><input readOnly value={`${typeof window === "undefined" ? "" : window.location.origin}/catalog/${settings.slug}`} className="h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600" /><button type="button" onClick={copyCatalogUrl} className="inline-flex h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50">{copied ? <Check size={14} /> : <Clipboard size={14} />}{copied ? "Copiado" : "Copiar"}</button></div></div>}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-5 py-4"><h2 className="font-bold text-slate-900">Contacto y presencia</h2><p className="mt-0.5 text-sm text-slate-500">Completa solo los datos que quieras publicar.</p></div>
+            <div className="grid gap-4 p-5 md:grid-cols-2">
+              {textFields.map((field) => <label key={field.key} className="block text-sm font-semibold text-slate-700">{field.label}<input type={field.type || "text"} value={String(settings[field.key] || "")} onChange={(event) => updateField(field.key, event.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-[#0058a3]" /></label>)}
+            </div>
+          </section>
+        </>
+      ) : (
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center"><Store size={30} className="mx-auto mb-3 text-slate-300" /><h2 className="font-bold text-slate-900">No hay configuracion disponible</h2><p className="mt-1 text-sm text-slate-500">No se recibieron datos de la tienda para editar.</p></div>
+      )}
+    </div>
+  );
 }

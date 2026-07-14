@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ShoppingCart, Box, ChevronUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronUp } from "lucide-react";
 import { AddToCartButton } from "@/app/components/cart/AddToCartButton";
-import { ARPreview } from "@/app/components/products/ARPreview";
 import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
+import { ARPreview } from "@/app/components/products/ARPreview";
 
 interface StickyAddToCartProps {
   product: {
@@ -29,35 +29,32 @@ interface StickyAddToCartProps {
   disabled?: boolean;
 }
 
+// Export name remains stable for catalog pages while the action is now inquiry-only.
 export function StickyAddToCart({ product, arData, disabled = false }: StickyAddToCartProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showArModal, setShowArModal] = useState(false);
+  const hasAr = Boolean(arData?.arUrl || arData?.glbUrl);
 
   useEffect(() => {
-    // Show sticky bar after scrolling past the main add-to-cart button
     const handleScroll = () => {
       const mainActions = document.getElementById("product-main-actions");
       if (mainActions) {
-        const rect = mainActions.getBoundingClientRect();
-        // Show when main actions are scrolled out of view
-        setIsVisible(rect.bottom < 0);
+        setIsVisible(mainActions.getBoundingClientRect().bottom < 0);
       }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll(); // Check initial state
+    handleScroll();
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close expanded state when clicking outside
   useEffect(() => {
     if (!isExpanded) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest("[data-sticky-bar]")) {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest("[data-sticky-inquiry]")) {
         setIsExpanded(false);
       }
     };
@@ -68,98 +65,77 @@ export function StickyAddToCart({ product, arData, disabled = false }: StickyAdd
 
   if (!isVisible) return null;
 
-  const formatPrice = (value: number) => {
-    return `$${value.toLocaleString("es-AR")}`;
+  const inquiryProduct = {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    price: product.price,
+    imageUrl: product.imageUrl ?? null,
+    storeName: product.storeName ?? "Muebleria",
+    storeSlug: product.storeSlug ?? "",
+    storeWhatsapp: product.storeWhatsapp ?? null,
   };
 
   return (
     <>
-      {/* Backdrop when expanded */}
       {isExpanded && (
-        <div className="fixed inset-0 bg-black/20 z-40 md:hidden" onClick={() => setIsExpanded(false)} />
+        <div className="fixed inset-0 z-40 bg-black/20 md:hidden" onClick={() => setIsExpanded(false)} />
       )}
 
-      {/* Sticky Bar */}
       <div
-        data-sticky-bar
-        className={`fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[var(--gray-200)] shadow-[0_-4px_20px_rgba(0,0,0,0.1)] transition-transform duration-300 md:hidden ${
-          isExpanded ? "translate-y-0" : ""
-        }`}
+        data-sticky-inquiry
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--gray-200)] bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        {/* Expanded Content */}
-        {isExpanded && (
-          <div className="px-4 pt-4 pb-2 border-b border-[var(--gray-100)]">
-            {/* Product Info */}
-            <div className="flex items-center gap-3 mb-4">
+        {isExpanded && hasAr && arData && (
+          <div className="border-b border-[var(--gray-100)] px-4 pt-4 pb-2">
+            <div className="mb-4 flex items-center gap-3">
               {product.imageUrl && (
                 <img
                   src={product.imageUrl}
                   alt={product.name}
-                  className="w-14 h-14 rounded-lg object-cover border border-[var(--gray-200)]"
+                  className="h-14 w-14 border border-[var(--gray-200)] object-cover"
                 />
               )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--gray-900)] truncate">
-                  {product.name}
-                </p>
-                <p className="text-lg font-bold text-[var(--gray-900)]">
-                  {formatPrice(product.price)}
-                </p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-[var(--gray-900)]">{product.name}</p>
                 {product.storeName && (
-                  <p className="text-xs text-[var(--gray-500)]">
-                    {product.storeName}
-                  </p>
+                  <p className="text-xs text-[var(--gray-500)]">{product.storeName}</p>
                 )}
               </div>
             </div>
-
-            {/* AR Button (if available) */}
-            {arData && (arData.arUrl || arData.glbUrl) && (
-              <div className="mb-3">
-                <ARPreview
-                  arUrl={arData.arUrl}
-                  glbUrl={arData.glbUrl}
-                  usdzUrl={arData.usdzUrl}
-                  productId={product.id}
-                  productName={product.name}
-                  widthCm={arData.widthCm}
-                  depthCm={arData.depthCm}
-                  heightCm={arData.heightCm}
-                />
-              </div>
-            )}
+            <ARPreview
+              arUrl={arData.arUrl}
+              glbUrl={arData.glbUrl}
+              usdzUrl={arData.usdzUrl}
+              productId={product.id}
+              storeId={product.storeId}
+              productName={product.name}
+              widthCm={arData.widthCm}
+              depthCm={arData.depthCm}
+              heightCm={arData.heightCm}
+            />
           </div>
         )}
 
-        {/* Collapsed / Always Visible Bar */}
         <div className="flex items-center gap-3 px-4 py-3">
-          {/* Price (collapsed) */}
-          {!isExpanded && (
-            <div className="flex-shrink-0">
-              <p className="text-lg font-bold text-[var(--gray-900)]">
-                {formatPrice(product.price)}
-              </p>
-            </div>
-          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-[var(--gray-900)]">{product.name}</p>
+            {product.storeName && <p className="truncate text-xs text-[var(--gray-500)]">{product.storeName}</p>}
+          </div>
 
-          {/* Expand Button (if AR available) */}
-          {arData && (arData.arUrl || arData.glbUrl) && !isExpanded && (
+          {hasAr && (
             <button
               type="button"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex-shrink-0 p-2 rounded-lg bg-[var(--gray-100)] text-[var(--gray-600)] hover:bg-[var(--gray-200)] transition-colors"
-              aria-label="Ver más opciones"
+              onClick={() => setIsExpanded((expanded) => !expanded)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--gray-100)] text-[var(--gray-600)] transition-colors hover:bg-[var(--gray-200)]"
+              aria-label="Ver opciones de realidad aumentada"
             >
-              <ChevronUp className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+              <ChevronUp className={`h-5 w-5 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
             </button>
           )}
 
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* WhatsApp Inquiry or Add to Cart Button */}
-          {product.storeWhatsapp && product.storeId ? (
+          {product.storeId ? (
             <WhatsappInquiryButton
               productId={product.id}
               storeId={product.storeId}
@@ -167,21 +143,13 @@ export function StickyAddToCart({ product, arData, disabled = false }: StickyAdd
               productPrice={product.price}
               selectedVariant={null}
               storeWhatsapp={product.storeWhatsapp}
-              className="!h-11 !px-5 !rounded-xl !bg-emerald-600 !font-semibold text-white shadow-sm transition-all hover:!bg-emerald-700 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer text-sm"
+              disabled={disabled}
+              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             />
           ) : (
             <AddToCartButton
-              product={{
-                id: product.id,
-                slug: product.slug,
-                name: product.name,
-                price: product.price,
-                imageUrl: product.imageUrl ?? null,
-                storeName: product.storeName ?? "Sin tienda",
-                storeSlug: product.storeSlug ?? "",
-                storeWhatsapp: product.storeWhatsapp ?? null,
-              }}
-              className="!h-11 !px-6 !rounded-xl !bg-[var(--gray-900)] !font-semibold text-white shadow-sm transition-all hover:!bg-[var(--gray-800)] active:scale-[0.98]"
+              product={inquiryProduct}
+              className="h-11 shrink-0 rounded-xl px-5 text-sm font-semibold"
               disabled={disabled}
             />
           )}

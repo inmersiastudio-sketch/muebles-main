@@ -83,19 +83,31 @@ export class AuthController {
   }
 
   /**
-   * GET /auth/verify-email
+   * POST /auth/verify-email
    */
   async verifyEmail(req: Request, res: Response): Promise<void> {
-    const parsed = verifyEmailSchema.safeParse({ token: req.query.token });
+    const parsed = verifyEmailSchema.safeParse(req.body);
     if (!parsed.success) {
       throw Errors.validation('Token requerido');
     }
 
     await authService.verifyEmail(parsed.data.token);
+    res.status(200).json({ message: 'Email verificado exitosamente' });
+  }
 
-    // Redirect to frontend
+  /**
+   * Legacy GET links are redirected without consuming the verification token.
+   */
+  async redirectEmailVerification(req: Request, res: Response): Promise<void> {
+    const parsed = verifyEmailSchema.safeParse({ token: req.query.token });
+    if (!parsed.success) {
+      throw Errors.validation('Token requerido');
+    }
+
     const siteUrl = env.SITE_URL || 'http://localhost:3000';
-    res.redirect(`${siteUrl}/verificar-email?verified=1`);
+    const redirectUrl = new URL('/verificar-email', siteUrl);
+    redirectUrl.searchParams.set('token', parsed.data.token);
+    res.redirect(302, redirectUrl.toString());
   }
 
   /**

@@ -1,14 +1,15 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { mercadoPagoService } from '../services/MercadoPagoService.js';
+import { CREDIT_PACKAGES, mercadoPagoService, type CreditPackageId } from '../services/MercadoPagoService.js';
 import { Errors } from '../errors/AppError.js';
 import type { AuthContext } from '../types/product.js';
 import type { AuthenticatedRequest } from '../lib/auth.js';
 
 // Schema for credit purchase request validation
+const creditPackageIds = Object.keys(CREDIT_PACKAGES) as [CreditPackageId, ...CreditPackageId[]];
+
 const purchaseCreditsSchema = z.object({
-  credits: z.number().int().positive('Credits must be a positive integer'),
-  amount: z.number().positive('Amount must be a positive number'),
+  packageId: z.enum(creditPackageIds),
 });
 
 function getAuthContext(req: Request): AuthContext {
@@ -32,7 +33,7 @@ export class PaymentController {
       throw Errors.validation('Invalid payload', parsed.error.flatten());
     }
 
-    const { credits, amount } = parsed.data;
+    const { packageId } = parsed.data;
     const user = getAuthContext(req);
 
     // 2. Validate store context
@@ -43,8 +44,7 @@ export class PaymentController {
     // 3. Initiate payment preference in Mercado Pago
     const result = await mercadoPagoService.createCreditsPreference(
       user.storeId,
-      credits,
-      amount
+      packageId,
     );
 
     // 4. Return links and IDs

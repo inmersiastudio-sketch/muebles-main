@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Cuboid, ImageIcon, Maximize2, X, Box, Ruler, Package } from "lucide-react";
+import { Box, ChevronLeft, ChevronRight, Cuboid, ImageIcon, Maximize2, Ruler, X } from "lucide-react";
 
 interface ProductViewerProps {
   images: string[];
@@ -14,6 +14,10 @@ interface ProductViewerProps {
     height?: number;
     depth?: number;
   };
+}
+
+function validDimension(value?: number): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 export function ProductViewer({
@@ -29,9 +33,7 @@ export function ProductViewer({
   const [imageIndex, setImageIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Advanced AR states
   const [showRuler, setShowRuler] = useState(false);
-  const [showBox, setShowBox] = useState(false);
   const [modelDims, setModelDims] = useState<{ x: number; y: number; z: number } | null>(null);
 
   const hasAr = !!(propGlbUrl || propUsdzUrl || arUrl);
@@ -49,6 +51,7 @@ export function ProductViewer({
     script.src = "https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js";
     script.dataset.modelViewer = "true";
     script.onload = () => setIsLoading(false);
+    script.onerror = () => setIsLoading(false);
     document.head.appendChild(script);
   }, [viewMode, hasAr]);
 
@@ -88,7 +91,11 @@ export function ProductViewer({
     };
   }, [arUrl, propGlbUrl, propUsdzUrl]);
 
-  const safeImages = images.length > 0 ? images : [];
+  const safeImages = images.filter(Boolean);
+
+  useEffect(() => {
+    setImageIndex((currentIndex) => Math.min(currentIndex, Math.max(safeImages.length - 1, 0)));
+  }, [safeImages.length]);
 
   // Toggle fullscreen
   const toggleFullscreen = () => {
@@ -124,21 +131,12 @@ export function ProductViewer({
     }
   };
 
-  // Autocalculated or API fallback dimensions
-  const finalDimensions = useMemo(() => {
-    if (modelDims) {
-      return {
-        width: Math.round(modelDims.x * 100),
-        height: Math.round(modelDims.y * 100),
-        depth: Math.round(modelDims.z * 100),
-      };
-    }
-    return {
-      width: productDimensions?.width || 0,
-      height: productDimensions?.height || 0,
-      depth: productDimensions?.depth || 0,
-    };
-  }, [modelDims, productDimensions]);
+  const apiDimensions = useMemo(() => ({
+    width: validDimension(productDimensions?.width),
+    height: validDimension(productDimensions?.height),
+    depth: validDimension(productDimensions?.depth),
+  }), [productDimensions]);
+  const hasProductDimensions = Boolean(apiDimensions.width || apiDimensions.height || apiDimensions.depth);
 
   return (
     <div className="relative h-full w-full flex flex-col">
@@ -203,14 +201,6 @@ export function ProductViewer({
                 white-space: nowrap;
                 transform: translate(-50%, -50%);
               }
-              .box-corner {
-                width: 14px;
-                height: 14px;
-                border-color: rgba(239, 68, 68, 0.85);
-                background-color: rgba(239, 68, 68, 0.2);
-                pointer-events: none;
-                transform: translate(-50%, -50%);
-              }
             `}</style>
 
             <model-viewer
@@ -218,7 +208,7 @@ export function ProductViewer({
               ios-src={iosUrl}
               alt={`Modelo 3D de ${alt}`}
               camera-controls
-              auto-rotate={!showRuler && !showBox} // disable autorotate during measurements for accuracy
+              auto-rotate={!showRuler}
               ar
               ar-modes="webxr scene-viewer quick-look"
               shadow-intensity="1"
@@ -232,55 +222,38 @@ export function ProductViewer({
               style={{ width: "100%", height: "100%", backgroundColor: "transparent" }}
               on-load={handleModelLoad}
             >
-              {/* Virtual Ruler Hotspots (Axis Labels) */}
               {showRuler && modelDims && (
                 <>
-                  {/* Width Hotspot (Front-Bottom Center) */}
-                  <div
-                    slot={`hotspot-dim-width`}
-                    className="dim-label"
-                    data-position={`0 0 ${modelDims.z / 2}`}
-                    data-normal="0 0 1"
-                  >
-                    Ancho: {finalDimensions.width} cm
-                  </div>
-
-                  {/* Height Hotspot (Right-Center-Front Corner) */}
-                  <div
-                    slot={`hotspot-dim-height`}
-                    className="dim-label"
-                    data-position={`${modelDims.x / 2} ${modelDims.y / 2} ${modelDims.z / 2}`}
-                    data-normal="1 0 0"
-                  >
-                    Alto: {finalDimensions.height} cm
-                  </div>
-
-                  {/* Depth Hotspot (Bottom-Right Center) */}
-                  <div
-                    slot={`hotspot-dim-depth`}
-                    className="dim-label"
-                    data-position={`${modelDims.x / 2} 0 0`}
-                    data-normal="1 0 0"
-                  >
-                    Profundidad: {finalDimensions.depth} cm
-                  </div>
-                </>
-              )}
-
-              {/* Bounding Box Corner Hotspots (8 Vertices representation) */}
-              {showBox && modelDims && (
-                <>
-                  {/* Bottom Corners */}
-                  <div slot="hotspot-b1" className="box-corner border-b-2 border-l-2 absolute" data-position={`${-modelDims.x / 2} 0 ${modelDims.z / 2}`} />
-                  <div slot="hotspot-b2" className="box-corner border-b-2 border-r-2 absolute" data-position={`${modelDims.x / 2} 0 ${modelDims.z / 2}`} />
-                  <div slot="hotspot-b3" className="box-corner border-t-2 border-r-2 absolute" data-position={`${modelDims.x / 2} 0 ${-modelDims.z / 2}`} />
-                  <div slot="hotspot-b4" className="box-corner border-t-2 border-l-2 absolute" data-position={`${-modelDims.x / 2} 0 ${-modelDims.z / 2}`} />
-
-                  {/* Top Corners */}
-                  <div slot="hotspot-b5" className="box-corner border-t-2 border-l-2 absolute" data-position={`${-modelDims.x / 2} ${modelDims.y} ${modelDims.z / 2}`} />
-                  <div slot="hotspot-b6" className="box-corner border-t-2 border-r-2 absolute" data-position={`${modelDims.x / 2} ${modelDims.y} ${modelDims.z / 2}`} />
-                  <div slot="hotspot-b7" className="box-corner border-b-2 border-r-2 absolute" data-position={`${modelDims.x / 2} ${modelDims.y} ${-modelDims.z / 2}`} />
-                  <div slot="hotspot-b8" className="box-corner border-b-2 border-l-2 absolute" data-position={`${-modelDims.x / 2} ${modelDims.y} ${-modelDims.z / 2}`} />
+                  {apiDimensions.width && (
+                    <div
+                      slot="hotspot-dim-width"
+                      className="dim-label"
+                      data-position={`0 0 ${modelDims.z / 2}`}
+                      data-normal="0 0 1"
+                    >
+                      Ancho: {apiDimensions.width} cm
+                    </div>
+                  )}
+                  {apiDimensions.height && (
+                    <div
+                      slot="hotspot-dim-height"
+                      className="dim-label"
+                      data-position={`${modelDims.x / 2} ${modelDims.y / 2} ${modelDims.z / 2}`}
+                      data-normal="1 0 0"
+                    >
+                      Alto: {apiDimensions.height} cm
+                    </div>
+                  )}
+                  {apiDimensions.depth && (
+                    <div
+                      slot="hotspot-dim-depth"
+                      className="dim-label"
+                      data-position={`${modelDims.x / 2} 0 0`}
+                      data-normal="1 0 0"
+                    >
+                      Profundidad: {apiDimensions.depth} cm
+                    </div>
+                  )}
                 </>
               )}
             </model-viewer>
@@ -301,33 +274,21 @@ export function ProductViewer({
                   Ver en tu espacio (AR)
                 </button>
 
-                {/* Virtual Ruler Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowRuler(!showRuler)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg border text-sm font-semibold transition-all active:scale-95 ${
-                    showRuler
-                      ? "bg-[#0058a3] text-white border-[#0058a3]"
-                      : "bg-white/95 backdrop-blur-sm text-[var(--gray-700)] border-[var(--gray-200)] hover:bg-white"
-                  }`}
-                >
-                  <Ruler className="w-4 h-4" />
-                  Regla Virtual {showRuler ? "ON" : "OFF"}
-                </button>
-
-                {/* Bounding Box Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowBox(!showBox)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg border text-sm font-semibold transition-all active:scale-95 ${
-                    showBox
-                      ? "bg-red-600 text-white border-red-600"
-                      : "bg-white/95 backdrop-blur-sm text-[var(--gray-700)] border-[var(--gray-200)] hover:bg-white"
-                  }`}
-                >
-                  <Package className="w-4 h-4" />
-                  Caja de Envío {showBox ? "ON" : "OFF"}
-                </button>
+                {hasProductDimensions && (
+                  <button
+                    type="button"
+                    aria-pressed={showRuler}
+                    onClick={() => setShowRuler((visible) => !visible)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg border text-sm font-semibold transition-all active:scale-95 ${
+                      showRuler
+                        ? "bg-[#0058a3] text-white border-[#0058a3]"
+                        : "bg-white/95 backdrop-blur-sm text-[var(--gray-700)] border-[var(--gray-200)] hover:bg-white"
+                    }`}
+                  >
+                    <Ruler className="w-4 h-4" aria-hidden="true" />
+                    {showRuler ? "Ocultar medidas" : "Mostrar medidas"}
+                  </button>
+                )}
               </div>
 
               {/* Fullscreen */}
@@ -341,15 +302,13 @@ export function ProductViewer({
               </button>
             </div>
 
-            {/* Dimensions Badge */}
-            {(finalDimensions.width > 0 || finalDimensions.height > 0 || finalDimensions.depth > 0) && (
+            {hasProductDimensions && (
               <div className="absolute top-4 right-4 bg-[#001d3d] text-white px-4 py-2 rounded-xl shadow-md border border-[#003566] text-xs font-bold flex items-center gap-2">
-                <Cuboid className="w-3.5 h-3.5 text-[#0058a3]" />
-                {finalDimensions.width > 0 && `${finalDimensions.width}cm`}
-                {finalDimensions.width > 0 && finalDimensions.depth > 0 && " × "}
-                {finalDimensions.depth > 0 && `${finalDimensions.depth}cm`}
-                {(finalDimensions.width > 0 || finalDimensions.depth > 0) && finalDimensions.height > 0 && " × "}
-                {finalDimensions.height > 0 && `${finalDimensions.height}cm`}
+                <Cuboid className="w-3.5 h-3.5 text-[#0058a3]" aria-hidden="true" />
+                {[apiDimensions.width, apiDimensions.depth, apiDimensions.height]
+                  .filter((dimension): dimension is number => dimension !== null)
+                  .map((dimension) => `${dimension} cm`)
+                  .join(" × ")}
               </div>
             )}
           </>

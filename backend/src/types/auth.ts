@@ -47,5 +47,6 @@ export interface RegistrationResult {
     slug: string;
   };
   requiresVerification: boolean;
+  verificationEmailSent: boolean;
   message: string;
 }
