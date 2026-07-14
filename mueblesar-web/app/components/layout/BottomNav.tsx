@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "../../context/CartContext";
-import { Home, Grid3X3, ShoppingCart, User } from "lucide-react";
+import { Home, Grid3X3, MessageSquare, User } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/productos", label: "Catálogo", icon: Grid3X3 },
-  { href: "/carrito", label: "Carrito", icon: ShoppingCart },
+  { href: "/carrito", label: "Consultas", icon: MessageSquare },
   { href: "/login", label: "Cuenta", icon: User },
 ];
 

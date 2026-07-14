@@ -40,7 +40,7 @@ export const stores: Store[] = [
     slug: "muebles-del-sol",
     logoUrl: "https://placehold.co/120x60?text=Del+Sol",
     description: "Mueblería especializada en living y comedor.",
-    whatsapp: "5493511111111",
+    whatsapp: "5493517018328",
     address: "Av. Siempre Viva 123, Córdoba",
   },
   {
@@ -49,7 +49,7 @@ export const stores: Store[] = [
     slug: "casa-linda",
     logoUrl: "https://placehold.co/120x60?text=Casa+Linda",
     description: "Diseño escandinavo y minimalista.",
-    whatsapp: "5493512222222",
+    whatsapp: "5493517018328",
     address: "Bv. Principal 456, Córdoba",
   },
 ];

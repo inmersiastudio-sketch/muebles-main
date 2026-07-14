@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma.js';
 import { z } from 'zod';
 import { Errors } from '../errors/AppError.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ============================================
 // SCHEMAS DE VALIDACIÓN
@@ -44,8 +44,7 @@ const UpdateInquirySchema = z.object({
  * POST /api/inquiries
  * Crear una nueva consulta (público, no requiere auth)
  */
-router.post('/', async (req: Request, res: Response) => {
-  try {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
     const data = CreateInquirySchema.parse(req.body);
 
     // Verificar que el producto existe
@@ -104,17 +103,8 @@ router.post('/', async (req: Request, res: Response) => {
       success: true,
       inquiry,
     });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        error: 'Datos inválidos',
-        details: error.errors,
-      });
-    }
-    console.error('Error creating inquiry:', error);
-    res.status(500).json({ error: 'Error al crear la consulta' });
-  }
-});
+  })
+);
 
 // ============================================
 // ENDPOINTS PRIVADOS (Requieren auth de tienda)
@@ -124,8 +114,7 @@ router.post('/', async (req: Request, res: Response) => {
  * GET /api/inquiries
  * Listar consultas de la tienda del usuario autenticado
  */
-router.get('/', async (req: Request, res: Response) => {
-  try {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'No autenticado' });
@@ -181,18 +170,14 @@ router.get('/', async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch (error) {
-    console.error('Error fetching inquiries:', error);
-    res.status(500).json({ error: 'Error al obtener consultas' });
-  }
-});
+  })
+);
 
 /**
  * GET /api/inquiries/stats
  * Estadísticas de consultas para el dashboard
  */
-router.get('/stats', async (req: Request, res: Response) => {
-  try {
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user?.storeId) {
       return res.status(403).json({ error: 'No autorizado' });
@@ -268,18 +253,14 @@ router.get('/stats', async (req: Request, res: Response) => {
         totalAmount: sales._sum.finalAmount || 0,
       },
     });
-  } catch (error) {
-    console.error('Error fetching stats:', error);
-    res.status(500).json({ error: 'Error al obtener estadísticas' });
-  }
-});
+  })
+);
 
 /**
  * GET /api/inquiries/:id
  * Detalle de una consulta específica
  */
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user?.storeId) {
       return res.status(403).json({ error: 'No autorizado' });
@@ -331,18 +312,14 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 
     res.json(inquiry);
-  } catch (error) {
-    console.error('Error fetching inquiry:', error);
-    res.status(500).json({ error: 'Error al obtener la consulta' });
-  }
-});
+  })
+);
 
 /**
  * PUT /api/inquiries/:id
  * Actualizar estado/resultado de una consulta
  */
-router.put('/:id', async (req: Request, res: Response) => {
-  try {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user?.storeId) {
       return res.status(403).json({ error: 'No autorizado' });
@@ -406,24 +383,14 @@ router.put('/:id', async (req: Request, res: Response) => {
       success: true,
       inquiry,
     });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        error: 'Datos inválidos',
-        details: error.errors,
-      });
-    }
-    console.error('Error updating inquiry:', error);
-    res.status(500).json({ error: 'Error al actualizar la consulta' });
-  }
-});
+  })
+);
 
 /**
  * POST /api/inquiries/:id/close
  * Cerrar una consulta con resultado (endpoint simplificado)
  */
-router.post('/:id/close', async (req: Request, res: Response) => {
-  try {
+router.post('/:id/close', asyncHandler(async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user?.storeId) {
       return res.status(403).json({ error: 'No autorizado' });
@@ -465,18 +432,14 @@ router.post('/:id/close', async (req: Request, res: Response) => {
       success: true,
       inquiry,
     });
-  } catch (error) {
-    console.error('Error closing inquiry:', error);
-    res.status(500).json({ error: 'Error al cerrar la consulta' });
-  }
-});
+  })
+);
 
 /**
  * DELETE /api/inquiries/:id
  * Eliminar una consulta (soft delete lógico, solo admin)
  */
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user?.storeId) {
       return res.status(403).json({ error: 'No autorizado' });
@@ -492,10 +455,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
 
     res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting inquiry:', error);
-    res.status(500).json({ error: 'Error al eliminar la consulta' });
-  }
-});
+  })
+);
 
 export default router;

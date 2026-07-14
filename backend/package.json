@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "npx prisma migrate deploy && tsc --project tsconfig.json",
+    "build": "prisma generate && tsc --project tsconfig.json",
     "start": "node dist/index.js",
     "lint": "echo \"add eslint later\"",
     "prisma:generate": "prisma generate",

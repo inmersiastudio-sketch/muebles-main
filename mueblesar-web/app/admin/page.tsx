@@ -29,6 +29,14 @@ type StatsSummary = {
   lowStock: { productId: number; name: string; stockQty: number; storeName: string }[];
 };
 
+type InquirySummary = {
+  total: number;
+  today: number;
+  thisWeek: number;
+  byStatus: Record<string, number>;
+  sales: { count: number; totalAmount: number };
+};
+
 // Skeleton for loading state
 function KPISkeleton() {
   return (
@@ -122,6 +130,7 @@ function KPICard({ label, value, trend, trendLabel, icon: Icon, color }: {
 export default function DashboardPage() {
   const { user, apiBase } = useAdmin();
   const [stats, setStats] = useState<StatsSummary | null>(null);
+  const [inquiries, setInquiries] = useState<InquirySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,14 +139,23 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/admin/stats`, { credentials: "include" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string })?.error || `Error ${res.status}`);
-        return;
+      const [statsRes, inqRes] = await Promise.allSettled([
+        fetch(`${apiBase}/api/admin/stats`, { credentials: "include" }),
+        fetch(`${apiBase}/api/inquiries/stats`, { credentials: "include" }),
+      ]);
+      if (statsRes.status === "fulfilled") {
+        if (!statsRes.value.ok) {
+          const data = await statsRes.value.json().catch(() => ({}));
+          setError((data as { error?: string })?.error || `Error ${statsRes.value.status}`);
+        } else {
+          const data = await statsRes.value.json();
+          setStats(data as StatsSummary);
+        }
       }
-      const data = await res.json();
-      setStats(data as StatsSummary);
+      if (inqRes.status === "fulfilled" && inqRes.value.ok) {
+        const data = await inqRes.value.json();
+        setInquiries(data as InquirySummary);
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -188,37 +206,39 @@ export default function DashboardPage() {
       {/* KPI Cards */}
       {loading ? (
         <KPISkeleton />
-      ) : stats ? (
+      ) : stats || inquiries ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KPICard
             label="Ventas totales"
-            value={formatPrice(stats.totalSales)}
+            value={stats ? formatPrice(stats.totalSales) : "—"}
             icon={DollarSign}
             color="bg-emerald-500"
-            trend={stats.last30Sales > 0 ? "up" : "neutral"}
-            trendLabel={stats.last30Sales > 0 ? `${formatPrice(stats.last30Sales)} últimos 30 días` : "Sin ventas recientes"}
+            trend={stats?.last30Sales && stats.last30Sales > 0 ? "up" : "neutral"}
+            trendLabel={stats?.last30Sales && stats.last30Sales > 0 ? `${formatPrice(stats.last30Sales)} últimos 30 días` : "Sin ventas recientes"}
           />
           <KPICard
-            label="Pedidos"
-            value={String(stats.totalOrders)}
+            label="Consultas hoy"
+            value={inquiries ? String(inquiries.today) : "—"}
             icon={ShoppingCart}
             color="bg-[#0058a3]"
-            trend="neutral"
-            trendLabel="Todos los períodos"
+            trend={inquiries && inquiries.today > 0 ? "up" : "neutral"}
+            trendLabel={inquiries ? `${inquiries.thisWeek} esta semana` : ""}
           />
           <KPICard
-            label="Ticket promedio"
-            value={formatPrice(stats.avgOrder)}
+            label="Consultas totales"
+            value={inquiries ? String(inquiries.total) : "—"}
             icon={Package}
             color="bg-violet-500"
+            trend={inquiries?.sales?.count && inquiries.sales.count > 0 ? "up" : "neutral"}
+            trendLabel={inquiries?.sales?.count ? `${inquiries.sales.count} ventas cerradas` : "Sin cierres aún"}
           />
           <KPICard
             label="Vistas AR"
-            value={String(stats.arTotal)}
+            value={stats ? String(stats.arTotal) : "—"}
             icon={Eye}
             color="bg-amber-500"
-            trend={stats.arLast30 > 0 ? "up" : "neutral"}
-            trendLabel={stats.arLast30 > 0 ? `${stats.arLast30} últimos 30 días` : "Sin datos recientes"}
+            trend={stats?.arLast30 && stats.arLast30 > 0 ? "up" : "neutral"}
+            trendLabel={stats?.arLast30 && stats.arLast30 > 0 ? `${stats.arLast30} últimos 30 días` : "Sin datos recientes"}
           />
         </div>
       ) : null}
@@ -388,6 +408,30 @@ export default function DashboardPage() {
                 </div>
               </div>
               <ArrowRight size={16} className="text-slate-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/inquiries"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 hover:border-[#0058a3]/30 hover:shadow-md transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                  <Package size={20} className="text-violet-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Consultas
+                    {inquiries?.byStatus?.NEW ? (
+                      <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                        {inquiries.byStatus.NEW > 9 ? "9+" : inquiries.byStatus.NEW}
+                      </span>
+                    ) : null}
+                  </h3>
+                  <p className="text-xs text-slate-500">Ver y gestionar consultas</p>
+                </div>
+              </div>
+              <ArrowRight size={16} className="text-slate-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
             </div>
           </Link>
         </div>

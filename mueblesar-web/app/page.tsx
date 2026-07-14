@@ -1,6 +1,4 @@
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
+export const revalidate = 60;
 
 import { Suspense } from "react";
 import Link from "next/link";
@@ -12,129 +10,6 @@ import { ArrowRight, Truck, Shield, Clock } from "lucide-react";
 import type { Product, ProductListItem } from "@/types";
 import { ProductGridSkeleton, CategoriesSkeleton, HeroSkeleton } from "./components/ui/Skeleton";
 
-const mockProducts: any[] = [
-  {
-    id: 1,
-    slug: "scandi-sofa-premium",
-    name: "Scandi Sofa Premium 3 Cuerpos Tapizado En Lino Anti-manchas Color Gris Claro",
-    price: 850000,
-    description: "Diseño nórdico, máximo confort.",
-    category: "Sofás",
-    room: "Living",
-    style: "Nórdico",
-    imageUrl: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 1, url: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 1,
-    store: { id: 1, name: "Amobly Store", slug: "amobly-store" },
-  },
-  {
-    id: 2,
-    slug: "eames-lounge-chair",
-    name: "Eames Lounge Chair Cuero Genuino Madera Nogal Reposera Clásica",
-    price: 1299000,
-    description: "Clásico del diseño moderno.",
-    category: "Sillones",
-    room: "Living",
-    style: "Moderno",
-    imageUrl: "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 2, url: "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 1,
-    store: { id: 2, name: "Luxe Furniture", slug: "luxe-furniture" },
-  },
-  {
-    id: 3,
-    slug: "nordic-oak-table",
-    name: "Nordic Oak Table Mesa De Comedor 6 Puestos Roble Macizo Natural",
-    price: 450000,
-    description: "Mesa de comedor en roble macizo.",
-    category: "Mesas",
-    room: "Comedor",
-    style: "Nórdico",
-    imageUrl: "https://images.unsplash.com/photo-1530018607912-eff2daa1bac4?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 3, url: "https://images.unsplash.com/photo-1530018607912-eff2daa1bac4?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 2,
-    store: { id: 3, name: "Nordic Design", slug: "nordic-design" },
-  },
-  {
-    id: 4,
-    slug: "velvet-cloud-sofa",
-    name: "Velvet Cloud Sofa 3 Cuerpos Terciopelo Verde Esmeralda",
-    price: 950000,
-    description: "Sofá de terciopelo verde esmeralda.",
-    category: "Sofás",
-    room: "Living",
-    style: "Contemporáneo",
-    imageUrl: "https://images.unsplash.com/photo-1550226891-ef816aed4a98?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 4, url: "https://images.unsplash.com/photo-1550226891-ef816aed4a98?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 1,
-    store: { id: 1, name: "Amobly Store", slug: "amobly-store" },
-  },
-  {
-    id: 5,
-    slug: "minimalist-bed-frame",
-    name: "Minimalist Bed Frame Cama Matrimonial Cabecera Tapizada Lino",
-    price: 320000,
-    description: "Cama matrimonial con cabecera tapizada.",
-    category: "Camas",
-    room: "Dormitorio",
-    style: "Minimalista",
-    imageUrl: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 5, url: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 2,
-    store: { id: 4, name: "Atelier Home", slug: "atelier-home" },
-  },
-  {
-    id: 6,
-    slug: "modern-floor-lamp",
-    name: "Modern Arched Floor Lamp Lámpara De Pie Arco Regulable Mármol",
-    price: 189000,
-    description: "Lámpara de pie con arco regulable.",
-    category: "Iluminación",
-    room: "Living",
-    style: "Moderno",
-    imageUrl: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 6, url: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 3,
-    store: { id: 5, name: "Lumina", slug: "lumina" },
-  },
-  {
-    id: 7,
-    slug: "carrara-coffee-table",
-    name: "Carrara Marble Coffee Table Mesa Centro Mármol Patas Doradas",
-    price: 450000,
-    description: "Mesa de centro en mármol de Carrara.",
-    category: "Mesas",
-    room: "Living",
-    style: "Lujoso",
-    imageUrl: "https://images.unsplash.com/photo-1533090481720-856c6e3c1fdc?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 7, url: "https://images.unsplash.com/photo-1533090481720-856c6e3c1fdc?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 2,
-    store: { id: 2, name: "Luxe Furniture", slug: "luxe-furniture" },
-  },
-  {
-    id: 8,
-    slug: "scandinavian-accent-chair",
-    name: "Scandinavian Accent Chair Silla De Acento Patas Roble Gris",
-    price: 295000,
-    description: "Silla de acento con patas de roble.",
-    category: "Sillas",
-    room: "Comedor",
-    style: "Escandinavo",
-    imageUrl: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?auto=format&fit=crop&q=80&w=800",
-    images: [{ id: 8, url: "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?auto=format&fit=crop&q=80&w=800" }],
-    inStock: true,
-    storeId: 1,
-    store: { id: 1, name: "Amobly Store", slug: "amobly-store" },
-  },
-];
-
 const featuredRooms = [
   { label: "Living", href: "/productos?room=living", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=600" },
   { label: "Comedor", href: "/productos?room=comedor", image: "https://images.unsplash.com/photo-1617104551722-3b2d51366400?auto=format&fit=crop&q=80&w=600" },
@@ -145,10 +20,9 @@ const featuredRooms = [
 async function getProducts() {
   try {
     const data = await fetchProducts();
-    return data.items.length > 0 ? data.items : mockProducts;
-  } catch (error) {
-    console.warn("Backend no disponible, usando datos de ejemplo");
-    return mockProducts;
+    return data.items || [];
+  } catch {
+    return [];
   }
 }
 
@@ -156,10 +30,19 @@ async function getProducts() {
 async function ProductsSection() {
   const products = await getProducts();
 
+  if (products.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-sm text-[var(--gray-500)]">No hay productos disponibles en este momento.</p>
+        <a href="/mueblerias" className="mt-3 text-sm font-medium text-[var(--primary-600)] hover:underline">Ver mueblerías →</a>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-      {products.slice(0, 8).map((product: any) => (
-        <ProductCard key={product.id} product={product as ProductListItem} />
+      {products.slice(0, 8).map((product: ProductListItem) => (
+        <ProductCard key={product.id} product={product} />
       ))}
     </div>
   );
@@ -167,7 +50,22 @@ async function ProductsSection() {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[var(--gray-100)] pb-8 sm:pb-12">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Amobly",
+            url: "https://amobly.ar",
+            logo: "https://amobly.ar/icon.png",
+            description: "Catálogo de mueblerías de Córdoba con realidad aumentada y visualización 3D",
+            areaServed: { "@type": "State", name: "Córdoba, Argentina" },
+          }),
+        }}
+      />
+      <div className="min-h-screen bg-[var(--gray-100)] pb-8 sm:pb-12">
       {/* Hero Section */}
       <section className="bg-white">
         <Container>
@@ -175,7 +73,7 @@ export default function Home() {
             {/* Text Content */}
             <div className="order-2 lg:order-1">
               <span className="inline-flex items-center rounded-full bg-[var(--primary-100)] px-3 py-1 text-xs font-bold tracking-wider text-[var(--primary-700)]">
-                NUEVA COLECCIÓN 2024
+                Realidad Aumentada · 3D Interactivo
               </span>
 
               <h1 className="mt-4 text-3xl font-extrabold leading-tight text-[var(--gray-900)] sm:text-4xl lg:text-5xl">
@@ -197,26 +95,26 @@ export default function Home() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href="/productos?ofertas=true"
+                  href="/mueblerias"
                   className="inline-flex items-center justify-center rounded-xl border border-[var(--gray-300)] bg-[var(--gray-100)] px-6 py-3 text-sm font-semibold text-[var(--gray-800)] transition-colors hover:bg-[var(--gray-200)] active:scale-95"
                 >
-                  Ver ofertas
+                  Ver mueblerías
                 </Link>
               </div>
 
-              {/* Stats */}
-              <div className="mt-8 flex gap-8 border-t border-[var(--gray-200)] pt-6">
+              {/* Value Props */}
+              <div className="mt-8 flex gap-6 border-t border-[var(--gray-200)] pt-6">
                 <div>
-                  <p className="text-2xl font-extrabold text-[var(--gray-900)] sm:text-3xl">12k+</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--gray-500)]">Clientes</p>
+                  <p className="text-2xl font-extrabold text-[var(--primary-600)] sm:text-3xl">3D</p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--gray-500)]">Vista Interactiva</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-extrabold text-[var(--gray-900)] sm:text-3xl">4.9/5</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--gray-500)]">Valoración</p>
+                  <p className="text-2xl font-extrabold text-[var(--primary-600)] sm:text-3xl">AR</p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--gray-500)]">En tu casa</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-extrabold text-[var(--gray-900)] sm:text-3xl">24h</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--gray-500)]">Envío express</p>
+                  <p className="text-2xl font-extrabold text-[var(--gray-900)] sm:text-3xl">CBA</p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--gray-500)]">Mueblerías locales</p>
                 </div>
               </div>
             </div>
@@ -313,6 +211,7 @@ export default function Home() {
           </div>
         </Container>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

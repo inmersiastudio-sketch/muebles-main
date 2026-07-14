@@ -191,7 +191,7 @@ export class CatalogService {
       orderBy,
       include: {
         media: {
-          where: { type: 'IMAGE' },
+          where: { type: { in: ['IMAGE', 'MODEL_3D'] } },
           orderBy: { sortOrder: 'asc' },
         },
         variants: {

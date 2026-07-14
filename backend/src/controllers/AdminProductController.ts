@@ -2,8 +2,8 @@ import type { Request, Response } from 'express';
 import { productService } from '../services/ProductService.js';
 import { Errors } from '../errors/AppError.js';
 import {
-  createProductSchema,
-  updateProductSchema,
+  CreateProductSchema,
+  UpdateProductSchema,
   productLogQuerySchema,
   type CreateProductInput,
   type UpdateProductInput,
@@ -30,7 +30,7 @@ export class AdminProductController {
    * Create a new product
    */
   async create(req: Request, res: Response): Promise<void> {
-    const parsed = createProductSchema.safeParse(req.body);
+    const parsed = CreateProductSchema.safeParse(req.body);
     if (!parsed.success) {
       throw Errors.validation('Invalid payload', parsed.error.flatten());
     }
@@ -74,7 +74,7 @@ export class AdminProductController {
       throw Errors.validation('Invalid product ID');
     }
 
-    const parsed = updateProductSchema.safeParse({ id, ...req.body });
+    const parsed = UpdateProductSchema.safeParse({ id, ...req.body });
     if (!parsed.success) {
       throw Errors.validation('Invalid payload', parsed.error.flatten());
     }
@@ -82,10 +82,10 @@ export class AdminProductController {
     const user = getAuthContext(req);
     const tolerance = Number(req.query.tolerance ?? 0.05) || 0.05;
 
-    const { id: productId, ...data } = parsed.data;
+    const data = parsed.data;
 
     const product = await productService.updateProduct(
-      productId,
+      id,
       data,
       user,
       tolerance

@@ -30,7 +30,7 @@
 4. **Configure service**:
    - Name: `amobly-backend`
    - Root Directory: `backend`
-   - Build Command: `npm install && npx prisma generate && npm run build`
+   - Build Command: `npm install && npm run build`
    - Start Command: `npm start`
    - Environment: Node
 

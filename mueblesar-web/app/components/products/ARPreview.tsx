@@ -341,7 +341,6 @@ export function ARPreview({
 
             <div className="grid gap-3 p-3 md:grid-cols-[1.7fr_1fr] md:p-6">
               <div className="flex min-h-[280px] md:min-h-[320px] items-center justify-center rounded-xl border border-slate-100 bg-slate-50">
-                {/* @ts-expect-error model-viewer is a custom element */}
                 <model-viewer
                   ref={modelRef}
                   src={glbUrl}

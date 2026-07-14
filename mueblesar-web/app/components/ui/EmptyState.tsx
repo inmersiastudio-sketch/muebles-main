@@ -166,9 +166,9 @@ export function EmptyCart() {
   return (
     <EmptyState
       icon="cart"
-      title="Tu carrito está vacío"
-      description="Agregá productos de nuestras mueblerías para comenzar tu compra."
-      actionLabel="Explorar productos"
+      title="No tenés consultas guardadas"
+      description="Agregá productos de nuestras mueblerías a tu lista para consultar por WhatsApp."
+      actionLabel="Explorar catálogo"
       actionHref="/productos"
       variant="default"
     />

@@ -44,12 +44,12 @@ const plans: Plan[] = [
     {
         id: "basic",
         name: "Mueblería Básica",
-        price: 20000,
+        price: 15000,
         credits: 10,
         features: [
             "10 Créditos 3D/mes",
-            "Soporte básico por email",
-            "Máximo 100 productos en BD",
+            "Hasta 50 productos",
+            "Soporte por email",
             "Modelos GLB/USDZ",
             "Visualización AR básica"
         ],
@@ -58,15 +58,14 @@ const plans: Plan[] = [
     {
         id: "pro",
         name: "Mueblería Pro",
-        price: 50000,
+        price: 35000,
         credits: 30,
         popular: true,
         features: [
             "30 Créditos 3D/mes",
-            "Carga por CSV masiva",
+            "Hasta 200 productos",
             "Estadísticas de vistas AR",
             "Soporte prioritario",
-            "Productos ilimitados",
             "Badge \"Pro\" en tu tienda"
         ],
         icon: Crown
@@ -74,15 +73,14 @@ const plans: Plan[] = [
     {
         id: "enterprise",
         name: "Enterprise",
-        price: 120000,
+        price: 80000,
         credits: 100,
         features: [
             "100 Créditos 3D/mes",
-            "Bot de WhatsApp propio",
-            "Integración Tiendanube",
+            "Hasta 1000 productos",
+            "Soporte 24/7",
             "API keys personalizadas",
-            "Gerente de cuenta dedicado",
-            "Análisis personalizado"
+            "Onboarding personalizado"
         ],
         icon: Zap
     }

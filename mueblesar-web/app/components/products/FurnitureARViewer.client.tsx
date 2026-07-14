@@ -18,7 +18,7 @@ type ModelViewerElement = HTMLElement & {
 
 type Props = {
   src: string;
-  iosSrc: string;
+  iosSrc?: string | null;
   alt?: string;
   showPackageBox?: boolean;
   packagePadding?: number;
@@ -89,14 +89,9 @@ export function FurnitureARViewer({
   const [dimensions, setDimensions] = useState<Vector3 | null>(null);
   const [boxPoints, setBoxPoints] = useState<BoxPoints>({});
 
-  const hasValidIosSrc = iosSrc.trim().length > 0;
+  const hasValidIosSrc = iosSrc ? iosSrc.trim().length > 0 : false;
 
   useEffect(() => {
-    if (!hasValidIosSrc) {
-      setScriptError("Este producto no tiene asset USDZ para Quick Look en iOS.");
-      return;
-    }
-
     let cancelled = false;
 
     loadModelViewerScript()
@@ -110,7 +105,7 @@ export function FurnitureARViewer({
     return () => {
       cancelled = true;
     };
-  }, [hasValidIosSrc]);
+  }, []);
 
   const packageDimensions = useMemo(() => {
     if (!dimensions) return null;
@@ -249,7 +244,7 @@ export function FurnitureARViewer({
       )}
 
       <model-viewer
-        ref={(node) => {
+        ref={(node: any) => {
           viewerRef.current = node as ModelViewerElement | null;
         }}
         src={src}

@@ -23,10 +23,11 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Relaciones
-  store          Store?
-  sessions       Session[]
-  passwordResets PasswordReset[]
-  productLogs    ProductLog[]
+  store                   Store?
+  sessions                Session[]
+  passwordResets          PasswordReset[]
+  emailVerificationTokens EmailVerificationToken[]
+  productLogs             ProductLog[]
 
   @@map("users")
 }
@@ -62,6 +63,18 @@ model PasswordReset {
   @@map("password_resets")
 }
 
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
 // ============================================
 // MODELOS DE TIENDA
 // ============================================
@@ -90,6 +103,11 @@ model Store {
   isActive   Boolean @default(true)
   isVerified Boolean @default(false)
 
+  // Redes sociales y sitio web
+  website         String?
+  socialInstagram String?
+  socialFacebook  String?
+
   // Horarios de atención
   businessHours Json? // { monday: { open: "09:00", close: "18:00" }, ... }
 
@@ -103,6 +121,16 @@ model Store {
   ai3dCredits      Int              @default(0)
   ai3dUsed         Int              @default(0)
 
+  // Campos adicionales para suscripciones y límites
+  mpPreapprovalId String?
+  paymentStatus   String?
+  planType        String?
+  aiCreditsLimit  Int              @default(0)
+  aiCreditsUsed   Int              @default(0)
+  maxProducts     Int              @default(10)
+  lastPaymentDate DateTime?
+  nextPaymentDate DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -115,6 +143,7 @@ model Store {
   // Relaciones inversas
   creditPurchases  CreditPurchase[]
   ai3dJobs         AI3DJob[]
+  inquiries        ProductInquiry[]
 
   @@map("stores")
 }
@@ -231,6 +260,7 @@ model ProductVariant {
   cartItems  CartItem[]
   orderItems OrderItem[]
   ai3dJobs   AI3DJob[]
+  inquiries  ProductInquiry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -575,33 +605,45 @@ model ProductView {
 }
 
 model ProductInquiry {
-  id Int @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
+  productId       Int
+  storeId         Int
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  variantId       String?
+  message         String?        @db.Text
+  status          InquiryStatus  @default(NEW)
+  result          InquiryResult?
+  resultNote      String?        @db.Text
+  finalAmount     Float?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  closedAt        DateTime?
 
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId Int
-
-  // Canal
-  channel InquiryChannel
-  contact String // teléfono/email
-
-  // Mensaje
-  message String? @db.Text
-
-  // Estado
-  isResponded Boolean   @default(false)
-  respondedAt DateTime?
-
-  createdAt DateTime @default(now())
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  store           Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@map("product_inquiries")
 }
 
-enum InquiryChannel {
-  WHATSAPP
-  EMAIL
-  PHONE
-  FORM
+enum InquiryStatus {
+  NEW
+  VIEWED
+  CONTACTED
+  CLOSED
 }
+
+enum InquiryResult {
+  SOLD
+  LOST_PRICE
+  LOST_STOCK
+  LOST_NO_REPLY
+  LOST_OTHER
+  PENDING
+}
+
 
 // ============================================
 // LOG DE CAMBIOS DE PRODUCTOS
@@ -696,3 +738,19 @@ model CreditPurchase {
   @@index([status])
   @@map("credit_purchases")
 }
+
+model SubscriptionLog {
+  id              Int      @id @default(autoincrement())
+  storeId         Int
+  eventType       String
+  mpPaymentId     String
+  mpPreapprovalId String
+  amount          Float
+  currency        String
+  status          String
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  @@map("subscription_logs")
+}
+

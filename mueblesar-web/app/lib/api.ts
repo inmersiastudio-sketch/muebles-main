@@ -42,7 +42,7 @@ const buildQuery = (filters: ProductFilters): string => {
 
 export async function fetchProducts(filters: ProductFilters = {}): Promise<ProductsResponse> {
   try {
-    const res = await fetch(`${API_BASE}/api/products${buildQuery(filters)}`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/products${buildQuery(filters)}`, { next: { revalidate: 60 } });
     if (!res.ok) {
       throw new Error(`Bad status ${res.status}`);
     }
@@ -70,7 +70,7 @@ export async function fetchStores(filters: StoreFilters = {}): Promise<StoresRes
 
 export async function fetchStoreBySlug(slug: string): Promise<StoreDetailResponse | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/stores/${slug}`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/stores/${slug}`, { next: { revalidate: 60 } });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Bad status ${res.status}`);
     return res.json();
@@ -82,7 +82,7 @@ export async function fetchStoreBySlug(slug: string): Promise<StoreDetailRespons
 
 export async function fetchProductBySlug(slug: string) {
   const res = await fetch(`${API_BASE}/api/products/${slug}`, {
-    cache: 'no-store',
+    next: { revalidate: 60 },
   });
 
   if (!res.ok) return null;

@@ -1,6 +1,4 @@
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
+export const revalidate = 60;
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -15,7 +13,9 @@ import { StickyAddToCart } from "@/app/components/products/StickyAddToCart";
 import { AddToCartButton } from "@/app/components/cart/AddToCartButton";
 import { ShareButton } from "@/app/components/products/ShareButton";
 import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
+import { ARPreview } from "@/app/components/products/ARPreview";
 import type { Product, ProductListItem } from "@/types";
+import type { Metadata } from "next";
 
 function formatPrice(value: number): string {
   return `$${(value ?? 0).toLocaleString("es-AR")}`;
@@ -23,6 +23,23 @@ function formatPrice(value: number): string {
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: ProductDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await fetchProductBySlug(slug);
+  if (!product) return { title: "Producto no encontrado" };
+  const p = product as Product;
+  const image = p.media?.images?.[0]?.url;
+  return {
+    title: p.name,
+    description: p.description || `${p.name} en Amobly`,
+    openGraph: {
+      title: p.name,
+      description: p.description || `${p.name} en Amobly`,
+      images: image ? [{ url: image, width: 800, height: 600, alt: p.name }] : [],
+    },
+  };
 }
 
 export default async function ProductDetail({ params }: ProductDetailPageProps) {
@@ -56,8 +73,39 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
   );
   const waLink = store?.whatsapp ? `https://wa.me/${store.whatsapp}?text=${message}` : undefined;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: typedProduct.name,
+    description: typedProduct.description,
+    image: typedProduct.media.images?.[0]?.url || "",
+    brand: {
+      "@type": "Brand",
+      name: store?.name || "Amobly",
+    },
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "ARS",
+      price: defaultVariant?.pricing.salePrice || 0,
+      availability: typedProduct.inventory.inStock
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+    },
+    ...(typedProduct.reviews.averageRating > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: typedProduct.reviews.averageRating,
+        reviewCount: typedProduct.reviews.totalReviews,
+      },
+    }),
+  };
+
   return (
     <div className="min-h-screen bg-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PDPViewTracker
         slug={typedProduct.slug}
         store={store?.slug}
@@ -230,6 +278,34 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
 
               {/* Actions */}
               <div id="product-main-actions" className="mt-6 space-y-3">
+                {/* AR Button */}
+                {hasAr && (
+                  <ARPreview
+                    glbUrl={typedProduct.media.model3d?.glbUrl}
+                    usdzUrl={typedProduct.media.model3d?.usdzUrl}
+                    productId={typedProduct.id}
+                    storeId={store?.id}
+                    productName={typedProduct.name}
+                    widthCm={typedProduct.dimensions.widthCm}
+                    depthCm={typedProduct.dimensions.depthCm}
+                    heightCm={typedProduct.dimensions.heightCm}
+                  />
+                )}
+
+                {/* WhatsApp CTA - Primary */}
+                {store?.whatsapp && store?.id && (
+                  <WhatsappInquiryButton
+                    productId={typedProduct.id}
+                    storeId={store.id}
+                    productName={typedProduct.name}
+                    productPrice={defaultVariant?.pricing.salePrice || 0}
+                    selectedVariant={defaultVariant}
+                    storeWhatsapp={store.whatsapp}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 text-base font-bold shadow-md transition-transform active:scale-[0.98] cursor-pointer"
+                  />
+                )}
+
+                {/* Add to Inquiry List - Secondary */}
                 <AddToCartButton
                   product={{
                     id: typedProduct.id,
@@ -241,22 +317,9 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                     storeSlug: store?.slug || "",
                     storeWhatsapp: store?.whatsapp || null,
                   }}
-                  className="w-full !h-14 !rounded-xl !bg-[var(--primary-600)] !text-white !font-semibold !text-base hover:!bg-[var(--primary-700)] transition-colors"
+                  className="w-full !h-14 !rounded-xl !bg-white !border-2 !border-[var(--primary-600)] !text-[var(--primary-600)] hover:!bg-slate-50 !font-semibold !text-base transition-colors shadow-sm"
                   disabled={!typedProduct.inventory.inStock}
                 />
-
-                {/* WhatsApp CTA */}
-                {store?.whatsapp && store?.id && (
-                  <WhatsappInquiryButton
-                    productId={typedProduct.id}
-                    storeId={store.id}
-                    productName={typedProduct.name}
-                    productPrice={defaultVariant?.pricing.salePrice || 0}
-                    selectedVariant={defaultVariant}
-                    storeWhatsapp={store.whatsapp}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--gray-200)] bg-white px-6 py-3.5 text-[var(--gray-700)] font-semibold transition-colors hover:border-[var(--success-600)] hover:text-[var(--success-600)]"
-                  />
-                )}
               </div>
 
               {/* Secondary Actions */}
@@ -440,6 +503,7 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
           storeName: store?.name,
           storeSlug: store?.slug,
           storeWhatsapp: store?.whatsapp,
+          storeId: store?.id,
         }}
         arData={hasAr ? {
           arUrl: typedProduct.media.model3d?.glbUrl,

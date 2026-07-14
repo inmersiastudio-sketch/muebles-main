@@ -22,6 +22,7 @@ import subscriptionRouter from "./routes/subscription.js";
 import webhooksRouter from "./routes/webhooks.js";
 import catalogRouter from "./routes/catalog.js";
 import inquiriesRouter from "./routes/inquiries.js";
+import adminInquiriesRouter from "./routes/adminInquiries.js";
 import paymentRouter from "./routes/payment.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 import { redis } from "./lib/redis.js";
@@ -40,7 +41,17 @@ export function createServer() {
   // Necesario para que cookies Secure funcionen detrás de proxy/ingress
   app.set("trust proxy", 1);
 
-  app.use(helmet());
+  app.use(helmet({
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    contentSecurityPolicy: false,
+  }));
+
+  // Pretty logs en desarrollo, JSON en producción
+  const isDev = process.env.NODE_ENV !== "production";
 
   // CORS estricto basado en variable de entorno
   const allowedOrigins = process.env.FRONTEND_URL
@@ -49,15 +60,20 @@ export function createServer() {
 
   app.use(
     cors({
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        if (!origin || isDev) {
+          callback(null, true);
+        } else if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       credentials: true,
     }),
   );
   app.use(express.json());
   app.use(cookieParser());
-
-  // Pretty logs en desarrollo, JSON en producción
-  const isDev = process.env.NODE_ENV !== "production";
   const logger = isDev
     ? pino({ transport: { target: "pino-pretty", options: { colorize: true, translateTime: "SYS:HH:MM:ss" } } })
     : pino();
@@ -66,6 +82,11 @@ export function createServer() {
   // Rate limiting general para evitar abusos básicos
   const publicLimiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
   const eventsLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
+  const apiKeyLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    keyGenerator: (req) => req.headers["x-api-key"]?.toString() || req.ip || "unknown",
+  });
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
@@ -82,7 +103,7 @@ export function createServer() {
   app.use("/api/admin/settings", adminSettingsRouter);
   app.use("/api/admin/orders", adminOrdersRouter);
   app.use("/api/admin/ai-3d", ai3dRouter);
-  app.use("/api/upload", uploadRouter);
+  app.use("/api/upload", apiKeyLimiter, uploadRouter);
   app.use("/api/proxy", proxyRouter);
   app.use("/api/short/ar", arRedirectRouter);
   app.use("/api/events", eventsLimiter, eventsRouter);
@@ -92,6 +113,7 @@ export function createServer() {
   app.use("/api/webhooks", webhooksRouter);
   app.use("/api/catalog", catalogRouter); // Rutas públicas de catálogo
   app.use("/api/inquiries", inquiriesRouter); // Sistema de consultas
+  app.use("/api/admin/inquiries", adminInquiriesRouter); // Admin inquiry analytics
   app.use(openapiRouter);
 
   // ── 404 Handler ─────────────────────────────────────────────

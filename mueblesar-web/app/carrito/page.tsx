@@ -56,9 +56,9 @@ export default function CartPage() {
     <div className="py-10">
       <Container>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Mi Carrito</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Mis Consultas</h1>
           <p className="text-gray-600 mt-2">
-            {items.length} {items.length === 1 ? "producto" : "productos"} en tu carrito
+            {items.length} {items.length === 1 ? "producto" : "productos"} para consultar
           </p>
         </div>
 
@@ -169,7 +169,7 @@ export default function CartPage() {
                   onClick={() => setShowClearConfirm(true)}
                   className="w-full text-sm text-gray-600 hover:text-red-600 hover:underline"
                 >
-                  Vaciar carrito
+                  Vaciar lista
                 </button>
               ) : (
                 <div className="space-y-2 text-center">

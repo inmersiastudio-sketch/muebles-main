@@ -1,6 +1,4 @@
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
+export const revalidate = 60;
 
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -299,6 +297,9 @@ export default async function CatalogPage({ params, searchParams }: Props) {
                     inStock: product.inStock || false,
                     hasDiscount: product.hasDiscount,
                     discountPercentage: product.discountPercentage,
+                    glbUrl: product.glbUrl,
+                    usdzUrl: product.usdzUrl,
+                    hasAr: Boolean(product.glbUrl || product.usdzUrl),
                   }}
                 />
               ))}

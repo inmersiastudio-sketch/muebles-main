@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ShoppingCart, Box, ChevronUp } from "lucide-react";
 import { AddToCartButton } from "@/app/components/cart/AddToCartButton";
 import { ARPreview } from "@/app/components/products/ARPreview";
+import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
 
 interface StickyAddToCartProps {
   product: {
@@ -15,6 +16,7 @@ interface StickyAddToCartProps {
     storeName?: string;
     storeSlug?: string;
     storeWhatsapp?: string | null;
+    storeId?: number;
   };
   arData?: {
     arUrl?: string;
@@ -156,21 +158,33 @@ export function StickyAddToCart({ product, arData, disabled = false }: StickyAdd
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Add to Cart Button */}
-          <AddToCartButton
-            product={{
-              id: product.id,
-              slug: product.slug,
-              name: product.name,
-              price: product.price,
-              imageUrl: product.imageUrl ?? null,
-              storeName: product.storeName ?? "Sin tienda",
-              storeSlug: product.storeSlug ?? "",
-              storeWhatsapp: product.storeWhatsapp ?? null,
-            }}
-            className="!h-11 !px-6 !rounded-xl !bg-[var(--gray-900)] !font-semibold text-white shadow-sm transition-all hover:!bg-[var(--gray-800)] active:scale-[0.98]"
-            disabled={disabled}
-          />
+          {/* WhatsApp Inquiry or Add to Cart Button */}
+          {product.storeWhatsapp && product.storeId ? (
+            <WhatsappInquiryButton
+              productId={product.id}
+              storeId={product.storeId}
+              productName={product.name}
+              productPrice={product.price}
+              selectedVariant={null}
+              storeWhatsapp={product.storeWhatsapp}
+              className="!h-11 !px-5 !rounded-xl !bg-emerald-600 !font-semibold text-white shadow-sm transition-all hover:!bg-emerald-700 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer text-sm"
+            />
+          ) : (
+            <AddToCartButton
+              product={{
+                id: product.id,
+                slug: product.slug,
+                name: product.name,
+                price: product.price,
+                imageUrl: product.imageUrl ?? null,
+                storeName: product.storeName ?? "Sin tienda",
+                storeSlug: product.storeSlug ?? "",
+                storeWhatsapp: product.storeWhatsapp ?? null,
+              }}
+              className="!h-11 !px-6 !rounded-xl !bg-[var(--gray-900)] !font-semibold text-white shadow-sm transition-all hover:!bg-[var(--gray-800)] active:scale-[0.98]"
+              disabled={disabled}
+            />
+          )}
         </div>
       </div>
     </>

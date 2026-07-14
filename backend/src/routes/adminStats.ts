@@ -12,6 +12,7 @@ const toNumber = (val: unknown) => (val === null || val === undefined ? 0 : Numb
 router.get("/", async (req, res) => {
   const user = (req as AuthenticatedRequest).user!;
   const storeFilter = user.role === UserRole.STORE_OWNER ? { storeId: user.storeId ?? undefined } : {};
+  const viewFilter = user.role === UserRole.STORE_OWNER ? { product: { storeId: user.storeId ?? undefined } } : {};
 
   const now = new Date();
   const last30 = new Date(now);
@@ -19,11 +20,11 @@ router.get("/", async (req, res) => {
 
   try {
     const [aggAll, ordersCount, agg30, arAll, ar30] = await Promise.all([
-      prisma.order.aggregate({ where: storeFilter, _sum: { total: true } }),
-      prisma.order.count({ where: storeFilter }),
-      prisma.order.aggregate({ where: { ...storeFilter, createdAt: { gte: last30 } }, _sum: { total: true } }),
-      prisma.productView.count({ where: { product: storeFilter } }),
-      prisma.productView.count({ where: { product: storeFilter, createdAt: { gte: last30 } } }),
+      prisma.order.aggregate({ where: storeFilter as any, _sum: { total: true } }),
+      prisma.order.count({ where: storeFilter as any }),
+      prisma.order.aggregate({ where: { ...storeFilter, createdAt: { gte: last30 } } as any, _sum: { total: true } }),
+      prisma.productView.count({ where: viewFilter as any }),
+      prisma.productView.count({ where: { ...viewFilter, createdAt: { gte: last30 } } as any }),
     ]);
 
     const totalSales = toNumber(aggAll._sum.total);
@@ -31,7 +32,7 @@ router.get("/", async (req, res) => {
     const avgOrder = totalOrders > 0 ? totalSales / totalOrders : 0;
     const last30Sales = toNumber(agg30._sum.total);
 
-    const storeOrders = await prisma.order.findMany({ where: storeFilter, select: { id: true } });
+    const storeOrders = await prisma.order.findMany({ where: storeFilter as any, select: { id: true } });
     const orderIds = storeOrders.map((o) => o.id);
 
     const topItems = await prisma.orderItem.groupBy({
@@ -47,7 +48,7 @@ router.get("/", async (req, res) => {
       _count: { productId: true },
       orderBy: { _count: { productId: "desc" } },
       take: 5,
-      // where: storeFilter.storeId ? { storeId: storeFilter.storeId } : undefined, // ProductView has no storeId, need to filter later or ignore
+      where: viewFilter as any,
     });
 
     const productIds = Array.from(new Set([...topItems.map((i) => i.productId), ...topAr.map((a) => a.productId)]));

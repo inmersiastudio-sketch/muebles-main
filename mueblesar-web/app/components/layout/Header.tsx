@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useCart } from "../../context/CartContext";
-import { Search, ShoppingCart, User, Menu, X, Sofa, Heart } from "lucide-react";
+import { Search, MessageSquare, User, Menu, X, Sofa, Heart } from "lucide-react";
 
 const nav = [
   { href: "/productos", label: "Catálogo" },
@@ -112,9 +112,9 @@ export function Header() {
               <Link
                 href="/carrito"
                 className="hidden md:flex relative h-9 w-9 items-center justify-center rounded-full text-[var(--gray-500)] transition-colors hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
-                aria-label="Ir al carrito"
+                aria-label="Mis Consultas"
               >
-                <ShoppingCart className="w-[18px] h-[18px]" />
+                <MessageSquare className="w-[18px] h-[18px]" />
                 {cartCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary-600)] text-[9px] font-bold text-white">
                     {cartCount > 9 ? "9+" : cartCount}
@@ -221,8 +221,8 @@ export function Header() {
                 className="flex items-center justify-between px-4 py-3 text-[15px] font-medium text-[var(--gray-700)] rounded-xl hover:bg-[var(--gray-50)] hover:text-[var(--primary-600)] transition-colors"
               >
                 <span className="flex items-center gap-3">
-                  <ShoppingCart className="w-5 h-5" />
-                  Carrito
+                  <MessageSquare className="w-5 h-5" />
+                  Mis Consultas
                 </span>
                 {cartCount > 0 && (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--primary-600)] text-xs font-bold text-white">

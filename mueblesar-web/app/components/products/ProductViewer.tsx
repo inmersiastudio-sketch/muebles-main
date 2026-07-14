@@ -213,7 +213,6 @@ export function ProductViewer({
               }
             `}</style>
 
-            {/* @ts-expect-error model-viewer is a custom element */}
             <model-viewer
               src={glbUrl}
               ios-src={iosUrl}

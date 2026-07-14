@@ -52,14 +52,14 @@ export function ImageCarousel({ images, alt, arUrl, glbUrl: propGlbUrl, usdzUrl:
     };
   }, [arUrl, propGlbUrl, propUsdzUrl, apiBase]);
 
-  const hasStrictAr = Boolean(glbUrl && iosUrl);
+  const hasStrictAr = Boolean(glbUrl);
   const hasAr = hasArAsset && hasStrictAr;
   const [index, setIndex] = useState(0);
   const [viewMode, setViewMode] = useState<"2d" | "3d">(hasAr ? "3d" : "2d");
 
   useEffect(() => {
     setViewMode(hasAr ? "3d" : "2d");
-  }, [hasAr, glbUrl, iosUrl]);
+  }, [hasAr, glbUrl]);
 
   if (safeImages.length === 0 && !hasAr) {
     return <div className="flex h-full items-center justify-center bg-slate-50 text-sm text-slate-500">Sin imagen</div>;
@@ -94,7 +94,7 @@ export function ImageCarousel({ images, alt, arUrl, glbUrl: propGlbUrl, usdzUrl:
       )}
 
       <div className="relative min-h-[240px] flex-1 overflow-hidden rounded-xl border border-[#dbe3ef] bg-[#f8fafc] shadow-sm">
-        {viewMode === "3d" && glbUrl && iosUrl ? (
+        {viewMode === "3d" && glbUrl ? (
           <div className="h-full w-full cursor-move">
             <FurnitureARViewer
               src={glbUrl}

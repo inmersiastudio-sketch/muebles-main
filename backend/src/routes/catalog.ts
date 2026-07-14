@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { catalogService } from "../services/CatalogService.js";
 import { Errors } from "../errors/AppError.js";
+import { asyncHandler } from "../middleware/errorHandler.js";
 
 const router = Router();
 
 // GET /api/catalog/:slug - Get catalog by store slug (public)
-router.get("/:slug", async (req, res) => {
-  try {
+router.get("/:slug", asyncHandler(async (req, res) => {
     const { slug } = req.params;
 
     // Query params para paginación y filtros
@@ -31,34 +31,17 @@ router.get("/:slug", async (req, res) => {
     res.json({
       data: catalog,
     });
-  } catch (err) {
-    console.error("Error fetching catalog:", err);
-    
-    if (err === Errors.notFound('Store')) {
-      return res.status(404).json({ error: "Catálogo no encontrado" });
-    }
-    
-    return res.status(500).json({ error: "Error al obtener el catálogo" });
-  }
-});
+  })
+);
 
 // GET /api/catalog/:storeSlug/:productSlug - Get specific product from catalog (public)
-router.get("/:storeSlug/:productSlug", async (req, res) => {
-  try {
+router.get("/:storeSlug/:productSlug", asyncHandler(async (req, res) => {
     const { storeSlug, productSlug } = req.params;
 
     const detail = await catalogService.getProductDetail(storeSlug, productSlug);
 
     res.json(detail);
-  } catch (err) {
-    console.error("Error fetching catalog product:", err);
-    
-    if (err === Errors.notFound('Store') || err === Errors.notFound('Product')) {
-      return res.status(404).json({ error: "Producto no encontrado" });
-    }
-    
-    return res.status(500).json({ error: "Error al obtener el producto" });
-  }
-});
+  })
+);
 
 export default router;

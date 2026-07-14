@@ -95,6 +95,19 @@ export class SubscriptionController {
    */
   async getPlans(_req: Request, res: Response): Promise<void> {
     const plans = {
+      FREE: {
+        name: 'Plan Gratuito',
+        amount: 0,
+        currency: 'ARS',
+        credits: 0,
+        maxProducts: 10,
+        features: [
+          'Hasta 10 productos',
+          '10 consultas WhatsApp al mes',
+          'Modelos GLB/USDZ',
+          'Visualización AR básica',
+        ],
+      },
       BASIC: {
         name: 'Plan Básico',
         amount: 15000,

@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma.js';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ============================================
 // SCHEMAS DE VALIDACIÓN (ZOD)
@@ -213,8 +213,7 @@ function transformProductForFrontend(product: any) {
  * GET /api/products
  * Lista de productos con filtros y paginación
  */
-router.get('/', async (req: Request, res: Response) => {
-  try {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
     const query = ProductListQuerySchema.parse(req.query);
 
     const where: any = {
@@ -260,16 +259,16 @@ router.get('/', async (req: Request, res: Response) => {
     let orderBy: any = {};
     switch (query.sortBy) {
       case 'price_asc':
-        orderBy = { variants: { _min: { salePrice: 'asc' } } };
+        orderBy = [{ variants: { _min: { salePrice: 'asc' } } }];
         break;
       case 'price_desc':
-        orderBy = { variants: { _max: { salePrice: 'desc' } } };
+        orderBy = [{ variants: { _max: { salePrice: 'desc' } } }];
         break;
       case 'newest':
-        orderBy = { createdAt: 'desc' };
+        orderBy = [{ createdAt: 'desc' }];
         break;
       default:
-        orderBy = { isFeatured: 'desc', createdAt: 'desc' };
+        orderBy = [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
     }
 
     const [products, total] = await Promise.all([
@@ -335,18 +334,14 @@ router.get('/', async (req: Request, res: Response) => {
       },
     });
 
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    res.status(500).json({ error: 'Error al obtener productos' });
-  }
-});
+  })
+);
 
 /**
  * GET /api/products/:slug
  * Producto individual completo para PDP
  */
-router.get('/:slug', async (req: Request, res: Response) => {
-  try {
+router.get('/:slug', asyncHandler(async (req: Request, res: Response) => {
     const { slug } = req.params;
 
     const product = await prisma.product.findUnique({
@@ -415,18 +410,14 @@ router.get('/:slug', async (req: Request, res: Response) => {
 
     res.json(transformedProduct);
 
-  } catch (error) {
-    console.error('Error fetching product:', error);
-    res.status(500).json({ error: 'Error al obtener el producto' });
-  }
-});
+  })
+);
 
 /**
  * GET /api/products/:slug/related
  * Productos relacionados
  */
-router.get('/:slug/related', async (req: Request, res: Response) => {
-  try {
+router.get('/:slug/related', asyncHandler(async (req: Request, res: Response) => {
     const { slug } = req.params;
 
     const product = await prisma.product.findUnique({
@@ -465,10 +456,7 @@ router.get('/:slug/related', async (req: Request, res: Response) => {
 
     res.json(related);
 
-  } catch (error) {
-    console.error('Error fetching related products:', error);
-    res.status(500).json({ error: 'Error al obtener productos relacionados' });
-  }
-});
+  })
+);
 
 export default router;

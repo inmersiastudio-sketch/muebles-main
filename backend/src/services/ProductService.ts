@@ -164,7 +164,7 @@ export class ProductService {
     this.ensureStoreAccess(user);
 
     // Prepare product data
-    const { images, ...productData } = data;
+    const { images, ...productData } = data as any;
 
     // Assign store for STORE role users
     if (user.role === UserRole.STORE_OWNER && user.storeId) {
@@ -179,7 +179,7 @@ export class ProductService {
 
     // Create product
     const product = await prisma.product.create({
-      data: productData as Prisma.ProductCreateInput,
+      data: productData as any,
     });
 
     // Log creation
@@ -237,7 +237,7 @@ export class ProductService {
     this.ensureStoreAccess(user);
     await this.verifyProductAccess(productId, user);
 
-    const { images, ...productData } = data;
+    const { images, ...productData } = data as any;
 
     // Assign store for STORE role users
     if (user.role === UserRole.STORE_OWNER && user.storeId) {
@@ -259,7 +259,7 @@ export class ProductService {
     // Update product
     const product = await prisma.product.update({
       where: { id: productId },
-      data: productData as Prisma.ProductUpdateInput,
+      data: productData as any,
     });
 
     // Log update
@@ -352,14 +352,14 @@ export class ProductService {
     user: AuthContext,
     index: number
   ): Promise<void> {
-    const { images, ...productData } = data;
+    const { images, ...productData } = data as any;
 
     if (user.role === UserRole.STORE_OWNER && user.storeId) {
       (productData as Record<string, unknown>).storeId = user.storeId;
     }
 
     const product = await tx.product.create({
-      data: productData as Prisma.ProductCreateInput,
+      data: productData as any,
     });
 
     if (images && images.length > 0) {
@@ -391,7 +391,7 @@ export class ProductService {
     user: AuthContext,
     index: number
   ): Promise<void> {
-    const { id: productId, images, ...productData } = data;
+    const { id: productId, images, ...productData } = data as any;
 
     if (user.role === UserRole.STORE_OWNER && user.storeId) {
       const existing = await tx.product.findUnique({
@@ -408,7 +408,7 @@ export class ProductService {
 
     await tx.product.update({
       where: { id: productId },
-      data: productData as Prisma.ProductUpdateInput,
+      data: productData as any,
     });
 
     if (images) {

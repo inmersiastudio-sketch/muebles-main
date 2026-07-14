@@ -229,6 +229,9 @@ export interface ProductListItem {
   inStock: boolean;
   hasDiscount?: boolean;
   discountPercentage?: number;
+  glbUrl?: string | null;
+  usdzUrl?: string | null;
+  hasAr?: boolean;
 }
 
 // ============================================

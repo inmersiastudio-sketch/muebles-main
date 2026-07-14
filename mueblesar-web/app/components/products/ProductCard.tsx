@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, Box, Truck } from "lucide-react";
+import { Heart, Box, Truck, Cuboid } from "lucide-react";
 import { FavoriteButton } from "../favorites/FavoriteButton";
 import { AddToCartButton } from "../cart/AddToCartButton";
 import type { ProductListItem } from "@/types";
@@ -12,6 +12,7 @@ type Props = {
 
 export function ProductCard({ product }: Props) {
   const hasDiscount = product.hasDiscount && product.discountPercentage && product.discountPercentage > 0;
+  const hasAR = product.hasAr || Boolean(product.glbUrl || product.usdzUrl);
 
   return (
     <article className="group relative flex flex-col bg-white rounded-2xl border border-[var(--gray-200)] overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
@@ -38,9 +39,28 @@ export function ProductCard({ product }: Props) {
           )}
         </Link>
 
-        {/* Badge de descuento */}
-        {hasDiscount && (
-          <div className="absolute top-3 left-3">
+        {/* Badge 3D/AR */}
+        {hasAR && (
+          <div className="absolute top-3 left-3 z-10">
+            <span className="inline-flex items-center gap-1 bg-white/95 backdrop-blur-sm text-[#001d3d] px-2 py-1 rounded-lg text-[10px] font-bold shadow-sm border border-[#e8e0d4]">
+              <Cuboid className="w-3 h-3" />
+              3D
+            </span>
+          </div>
+        )}
+
+        {/* Badge de descuento (solo si no tiene AR, o se superpone) */}
+        {hasDiscount && !hasAR && (
+          <div className="absolute top-3 left-3 z-10">
+            <span className="bg-[var(--error-500)] text-white px-2 py-1 rounded-lg text-[10px] font-bold">
+              -{product.discountPercentage}%
+            </span>
+          </div>
+        )}
+
+        {/* Descuento cuando también tiene AR (se pone abajo a la izq) */}
+        {hasDiscount && hasAR && (
+          <div className="absolute top-12 left-3 z-10">
             <span className="bg-[var(--error-500)] text-white px-2 py-1 rounded-lg text-[10px] font-bold">
               -{product.discountPercentage}%
             </span>

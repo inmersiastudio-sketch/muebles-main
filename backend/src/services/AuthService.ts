@@ -167,7 +167,7 @@ export class AuthService {
       return { store, user };
     });
 
-    // await this.createAndSendVerificationToken(result.user.id, result.user.email, result.user.name);
+    await this.createAndSendVerificationToken(result.user.id, result.user.email, result.user.name);
 
     return {
       user: publicUser(result.user),
@@ -185,36 +185,31 @@ export class AuthService {
    * Verify email with token
    */
   async verifyEmail(token: string): Promise<void> {
-    /*
     const verificationToken = await prisma.emailVerificationToken.findUnique({
       where: { token },
       include: { user: { include: { store: true } } },
     });
 
     if (!verificationToken || verificationToken.expiresAt < new Date()) {
-      throw Errors.tokenInvalid('Token inválido o expirado');
+      throw Errors.tokenInvalid('Token invalido o expirado');
     }
 
-    // Mark email as verified
     await prisma.user.update({
       where: { id: verificationToken.userId },
       data: { emailVerified: new Date() },
     });
 
-    // Clean up used token
     await prisma.emailVerificationToken.deleteMany({
       where: { userId: verificationToken.userId },
     });
 
-    // Send welcome email
     const siteUrl = env.SITE_URL || 'http://localhost:3000';
-    const storeName = verificationToken.user.store?.name || 'tu mueblería';
+    const storeName = verificationToken.user.store?.name || 'tu muebleria';
     await sendWelcomeEmail(
       verificationToken.user.email,
       storeName,
       `${siteUrl}/admin`
     );
-    */
   }
 
   /**
@@ -228,7 +223,7 @@ export class AuthService {
       return;
     }
 
-    // await this.createAndSendVerificationToken(user.id, user.email, user.name);
+    await this.createAndSendVerificationToken(user.id, user.email, user.name);
   }
 
   /**
@@ -312,8 +307,6 @@ export class AuthService {
     email: string,
     name?: string | null
   ): Promise<string> {
-    /*
-    // Invalidate old tokens
     await prisma.emailVerificationToken.deleteMany({ where: { userId } });
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -322,8 +315,7 @@ export class AuthService {
     await prisma.emailVerificationToken.create({
       data: { userId, token, expiresAt },
     });
-    */
-    const token = 'fake-token';
+
     const siteUrl = env.SITE_URL || 'http://localhost:3000';
     const verifyUrl = `${siteUrl}/verificar-email?token=${token}`;
     await sendVerificationEmail(email, verifyUrl, name ?? undefined);

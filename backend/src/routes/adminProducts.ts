@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../lib/prisma.js';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ============================================
 // SCHEMAS ZOD VALIDACIÓN
@@ -198,16 +199,31 @@ function calculateVolume(dimensions: any): number {
  * POST /api/admin/products
  * Crear producto completo con transacción
  */
-router.post('/', async (req: Request, res: Response) => {
-    try {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
         // 1. Validar input
         const data = CreateProductSchema.parse(req.body);
 
         // 2. Obtener store del usuario autenticado (middleware de auth)
-        // Usamos any temporalmente para evitar problemas de tipos de req.user
         const storeId = (req as any).user?.storeId;
         if (!storeId) {
             return res.status(403).json({ error: 'No tienes una tienda asociada' });
+        }
+
+        // Verificar límite de productos según el plan de suscripción de la tienda
+        const store = await prisma.store.findUnique({
+            where: { id: storeId },
+            select: { maxProducts: true }
+        });
+
+        if (store) {
+            const productCount = await prisma.product.count({
+                where: { storeId }
+            });
+            if (productCount >= store.maxProducts) {
+                return res.status(403).json({ 
+                    error: `Límite de catálogo alcanzado. Tu plan actual permite un máximo de ${store.maxProducts} productos.` 
+                });
+            }
         }
 
         // 3. Generar slug único
@@ -357,25 +373,14 @@ router.post('/', async (req: Request, res: Response) => {
             product: fullProduct,
         });
 
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({
-                error: 'Datos inválidos',
-                details: error.errors,
-            });
-        }
-
-        console.error('Error creating product:', error);
-        res.status(500).json({ error: 'Error al crear el producto' });
-    }
-});
+    })
+);
 
 /**
  * PUT /api/admin/products/:id
  * Actualizar producto completo con transacción
  */
-router.put('/:id', async (req: Request, res: Response) => {
-    try {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
         const productId = parseInt(req.params.id);
         const data = UpdateProductSchema.parse(req.body);
 
@@ -619,25 +624,14 @@ router.put('/:id', async (req: Request, res: Response) => {
             product: fullProduct,
         });
 
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({
-                error: 'Datos inválidos',
-                details: error.errors,
-            });
-        }
-
-        console.error('Error updating product:', error);
-        res.status(500).json({ error: 'Error al actualizar el producto' });
-    }
-});
+    })
+);
 
 /**
  * DELETE /api/admin/products/:id
  * Eliminar producto (soft delete opcional)
  */
-router.delete('/:id', async (req: Request, res: Response) => {
-    try {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
         const productId = parseInt(req.params.id);
         const storeId = (req as any).user?.storeId;
 
@@ -665,19 +659,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
             success: true,
             message: 'Producto eliminado exitosamente',
         });
-
-    } catch (error) {
-        console.error('Error deleting product:', error);
-        res.status(500).json({ error: 'Error al eliminar el producto' });
-    }
-});
+    })
+);
 
 /**
  * GET /api/admin/products
  * Listado de productos para el admin (con filtros de tienda)
  */
-router.get('/', async (req: Request, res: Response) => {
-    try {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
         const storeId = (req as any).user?.storeId;
         if (!storeId) {
             return res.status(403).json({ error: 'No autorizado' });
@@ -734,11 +723,7 @@ router.get('/', async (req: Request, res: Response) => {
                 totalPages: Math.ceil(total / limit),
             },
         });
-
-    } catch (error) {
-        console.error('Error fetching admin products:', error);
-        res.status(500).json({ error: 'Error al obtener productos' });
-    }
-});
+    })
+);
 
 export default router;

@@ -265,7 +265,7 @@ export class MercadoPagoService {
             pending: `${env.SITE_URL || 'http://localhost:3000'}/admin/billing?credits=pending`,
           },
           auto_return: 'approved',
-          notification_url: `${env.API_URL || 'http://localhost:3001'}/api/webhooks/mercadopago`,
+          notification_url: `${env.API_BASE_URL || 'http://localhost:3001'}/api/webhooks/mercadopago`,
         },
       });
 
@@ -556,8 +556,8 @@ export class MercadoPagoService {
       data: {
         paymentStatus: 'CANCELLED',
         planType: 'FREE',
-        aiCreditsLimit: 5, // Reset to free tier
-        maxProducts: 20, // Reset to free tier
+        aiCreditsLimit: 0, // Reset to free tier
+        maxProducts: 10, // Reset to free tier
       } as any,
     });
 
