@@ -3,8 +3,8 @@
 Estas reglas definen el estándar de desarrollo y el flujo de trabajo obligatorio para cualquier Inteligencia Artificial que trabaje en esta base de código.
 
 ## 📌 1. Flujo de Git y Ramas (Crítico)
-*   **Prohibido programar en `main`**: Nunca hagas cambios directamente sobre la rama `main`.
-*   **Creación de Ramas**: Siempre trabaja sobre una rama de desarrollo descriptiva creada a partir de `main` (ej: `feat/autenticacion`, `fix/catalog-crash`, `refactor/product-service`).
+*   **Prohibido programar en `main` o `develop` directamente**: Nunca subas cambios directamente a las ramas de integración principal (`main` o `develop`).
+*   **Ramas de Desarrollo**: Cada desarrollador debe crear sus ramas a partir de `develop` usando la convención `dev/nombre-desarrollador/funcionalidad` (ej: `dev/erik/autenticacion`, `dev/nombre-companero/catalog-crash`).
 *   **Commits descriptivos**: Los commits deben seguir el formato de Conventional Commits en español (ej: `feat: agregar buscador de tiendas`, `fix: corregir respuesta 403 en endpoints admin`).
 
 ## 🗂️ 2. Estructura del Monorepo

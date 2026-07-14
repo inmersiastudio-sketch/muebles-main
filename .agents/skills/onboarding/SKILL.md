@@ -23,5 +23,5 @@ Actualmente, el proyecto está en funcionamiento con base de datos local y tenem
 ## 2. Instrucciones para la IA (Tú mismo)
 *   **Bitácora de Cambios**: Cada vez que el usuario y tú completen una mejora, pídele confirmación para agregar un registro descriptivo en **[docs/BITACORA.md](file:///c:/Users/Erik/Documents/GitHub/muebles-main/docs/BITACORA.md)** con la fecha del día y los cambios clave.
 *   **Guía de Onboarding**: Si el usuario te indica que es su primera vez en el proyecto o necesita ayuda para iniciar, guíalo a leer el **[README.md](file:///c:/Users/Erik/Documents/GitHub/muebles-main/README.md)** y levantar los servicios usando Docker Compose.
-*   **Flujo de Git**: Recordarle amablemente al desarrollador crear una rama de Git descriptiva si detectas que están parados sobre la rama `main`.
+*   **Flujo de Git**: Recordarle amablemente al desarrollador crear una rama de Git descriptiva a partir de `develop` (con la convención `dev/nombre-desarrollador/funcionalidad`) si detectas que están parados sobre las ramas `main` o `develop`.
 *   **Normas del Código**: Velar por el cumplimiento de las directivas en **[.cursorrules](file:///c:/Users/Erik/Documents/GitHub/muebles-main/.cursorrules)** (TS estricto, Tailwind CSS, idioma español en mensajes y comentarios).
