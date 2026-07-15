@@ -103,6 +103,8 @@ export default function InventoryPage() {
   const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
   const [previewRows, setPreviewRows] = useState<string[][]>([]);
   const [pendingImportRows, setPendingImportRows] = useState<string[][]>([]);
+  const [importStoreId, setImportStoreId] = useState<string>("");
+  const [originalProduct, setOriginalProduct] = useState<AdminProductListItem | null>(null);
 
   // ─── Derived data ───
   const categories = useMemo(() => {
@@ -232,15 +234,41 @@ export default function InventoryPage() {
   };
 
   const openEdit = (p: AdminProductListItem) => {
+    setOriginalProduct(p);
+    const dims = (p as any).dimensions || {};
+    const pkgDims = dims.packageDimensions || {};
+    const logs = (p as any).logistics || {};
+    const delDays = logs.deliveryTimeDays || {};
+    const ass = logs.assembly || {};
+    const pkg = logs.packaging || {};
+
     setForm({
       id: p.id, storeId: p.storeId, name: p.name, slug: p.slug,
       description: p.description ?? "", category: p.category ?? "", room: p.room ?? "",
       style: p.style ?? "", color: p.color ?? "", featured: Boolean(p.featured),
       price: String(p.price ?? ""), arUrl: p.arUrl ?? "", glbUrl: p.glbUrl ?? "", usdzUrl: p.usdzUrl ?? "",
-      widthCm: p.widthCm ? String(p.widthCm) : "", depthCm: p.depthCm ? String(p.depthCm) : "",
-      heightCm: p.heightCm ? String(p.heightCm) : "", imageUrl: p.imageUrl ?? "",
+      widthCm: dims.widthCm ? String(dims.widthCm) : (p.widthCm ? String(p.widthCm) : ""),
+      depthCm: dims.depthCm ? String(dims.depthCm) : (p.depthCm ? String(p.depthCm) : ""),
+      heightCm: dims.heightCm ? String(dims.heightCm) : (p.heightCm ? String(p.heightCm) : ""),
+      imageUrl: p.imageUrl ?? "",
       images: p.images?.map((i) => ({ url: i.url, type: i.type || undefined })) ?? [],
       inStock: Boolean(p.inStock), stockQty: p.stockQty ? String(p.stockQty) : "",
+      
+      // Nuevos campos de logística y empaque
+      weightKg: dims.weightKg ? String(dims.weightKg) : "",
+      packageWidthCm: pkgDims.widthCm ? String(pkgDims.widthCm) : "",
+      packageHeightCm: pkgDims.heightCm ? String(pkgDims.heightCm) : "",
+      packageDepthCm: pkgDims.depthCm ? String(pkgDims.depthCm) : "",
+      packageWeightKg: pkgDims.weightKg ? String(pkgDims.weightKg) : "",
+      deliveryMinDays: delDays.min ? String(delDays.min) : "2",
+      deliveryMaxDays: delDays.max ? String(delDays.max) : "7",
+      deliveryType: logs.deliveryType || "home",
+      assemblyIncluded: Boolean(ass.included),
+      assemblyPrice: ass.price ? String(ass.price) : "",
+      assemblyTimeMinutes: ass.estimatedTimeMinutes ? String(ass.estimatedTimeMinutes) : "",
+      assemblyDifficulty: ass.difficulty || "easy",
+      piecesCount: pkg.piecesCount ? String(pkg.piecesCount) : "1",
+      specialHandling: Boolean(pkg.specialHandling),
     });
     // Cargar variantes del producto
     if (p.variants && p.variants.length > 0) {
@@ -274,7 +302,7 @@ export default function InventoryPage() {
     setDrawerOpen(true);
   };
 
-  const closeDrawer = () => { setDrawerOpen(false); setForm(emptyForm); setVariants([]); setFormErrors({}); setFormValidation(null); };
+  const closeDrawer = () => { setDrawerOpen(false); setForm(emptyForm); setVariants([]); setFormErrors({}); setFormValidation(null); setOriginalProduct(null); };
 
   const submitForm = async () => {
     const errors: Record<string, string> = {};
@@ -294,6 +322,66 @@ export default function InventoryPage() {
     setSaving(true);
     setError(null);
     try {
+      const w = Number(form.widthCm);
+      const h = Number(form.heightCm);
+      const d = Number(form.depthCm);
+      const wt = Number(form.weightKg);
+
+      const originalDimensions = (originalProduct as any)?.dimensions || {};
+      const originalLogistics = (originalProduct as any)?.logistics || {};
+
+      let dimensions: any = undefined;
+      if (w || h || d || wt) {
+        dimensions = {
+          ...originalDimensions,
+          widthCm: w || 0,
+          heightCm: h || 0,
+          depthCm: d || 0,
+          weightKg: wt || 10,
+        };
+
+        const pw = Number(form.packageWidthCm);
+        const ph = Number(form.packageHeightCm);
+        const pd = Number(form.packageDepthCm);
+        const pwt = Number(form.packageWeightKg);
+
+        if (pw || ph || pd || pwt) {
+          dimensions.packageDimensions = {
+            ...(originalDimensions.packageDimensions || {}),
+            widthCm: pw || 0,
+            heightCm: ph || 0,
+            depthCm: pd || 0,
+            weightKg: pwt || 10,
+          };
+        }
+      }
+
+      const minDays = Number(form.deliveryMinDays);
+      const maxDays = Number(form.deliveryMaxDays);
+
+      const logistics = {
+        ...originalLogistics,
+        deliveryTimeDays: {
+          ...(originalLogistics.deliveryTimeDays || {}),
+          min: minDays || 2,
+          max: maxDays || 7,
+        },
+        deliveryType: form.deliveryType || "home",
+        shippingZones: originalLogistics.shippingZones || ["CABA", "GBA"],
+        assembly: {
+          ...(originalLogistics.assembly || {}),
+          included: form.assemblyIncluded,
+          price: form.assemblyPrice ? Number(form.assemblyPrice) : undefined,
+          estimatedTimeMinutes: form.assemblyTimeMinutes ? Number(form.assemblyTimeMinutes) : undefined,
+          difficulty: form.assemblyDifficulty || "easy",
+        },
+        packaging: {
+          ...(originalLogistics.packaging || {}),
+          piecesCount: Number(form.piecesCount) || 1,
+          specialHandling: form.specialHandling,
+        },
+      };
+
       const payload = {
         storeId: Number(form.storeId), name: form.name, slug: form.slug,
         description: form.description || undefined, category: form.category || undefined,
@@ -301,9 +389,8 @@ export default function InventoryPage() {
         featured: form.featured, price: Number(form.price),
         arUrl: form.arUrl || undefined, glbUrl: form.glbUrl || undefined, usdzUrl: form.usdzUrl || undefined,
         imageUrl: form.imageUrl || undefined,
-        widthCm: form.widthCm ? Number(form.widthCm) : undefined,
-        depthCm: form.depthCm ? Number(form.depthCm) : undefined,
-        heightCm: form.heightCm ? Number(form.heightCm) : undefined,
+        dimensions: dimensions || undefined,
+        logistics: logistics,
         images: form.images.filter((i) => i.url).map((i) => ({ url: i.url, type: i.type || undefined })),
         inStock: form.inStock, stockQty: form.stockQty ? Number(form.stockQty) : undefined,
         // Nuevos campos de variantes
@@ -340,25 +427,93 @@ export default function InventoryPage() {
   };
 
   // ─── CSV ───
-  const exportCsv = () => {
-    if (!sortedProducts.length) return;
-    const fields = ["id", "storeId", "name", "slug", "price", "category", "room", "style", "arUrl", "glbUrl", "usdzUrl", "imageUrl", "inStock", "stockQty"];
-    const csv = [fields.join(","), ...sortedProducts.map((p) => fields.map((f) => `"${String((p as any)[f] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "productos.csv";
-    a.click();
+  const exportCsv = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/admin/products?limit=all`, { credentials: "include" });
+      if (!res.ok) throw new Error("Error al descargar el catálogo completo");
+      const data = await res.json();
+      const allProducts = data.items || [];
+      if (!allProducts.length) return;
+      const fields = ["id", "storeId", "name", "slug", "price", "category", "room", "style", "arUrl", "glbUrl", "usdzUrl", "imageUrl", "inStock", "stockQty", "widthCm", "depthCm", "heightCm", "weightKg"];
+      const csv = [fields.join(","), ...allProducts.map((p: any) => fields.map((f) => `"${String(p[f] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = "productos.csv";
+      a.click();
+    } catch (err) {
+      alert((err as Error).message);
+    }
   };
 
   const handleImportFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const lines = (e.target?.result as string).split(/\r?\n/).filter((l) => l.trim());
-      if (lines.length < 2) return;
-      setPreviewHeaders(lines[0].split(",").map((c) => c.replace(/"/g, "").trim()));
-      const rows = lines.slice(1).map((l) => l.split(",").map((v) => v.replace(/^"|"$/g, "").trim()));
+      const text = e.target?.result as string;
+
+      // Parser CSV robusto que soporta saltos de línea internos y comillas dobles
+      const parseCSV = (csvText: string): string[][] => {
+        const result: string[][] = [];
+        let row: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        
+        for (let i = 0; i < csvText.length; i++) {
+          const char = csvText[i];
+          const nextChar = csvText[i + 1];
+          
+          if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+              current += '"';
+              i++; // omitir comilla duplicada
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            row.push(current.trim());
+            current = "";
+          } else if ((char === '\r' || char === '\n') && !inQuotes) {
+            if (char === '\r' && nextChar === '\n') {
+              i++;
+            }
+            row.push(current.trim());
+            if (row.length > 1 || row[0] !== "") {
+              result.push(row);
+            }
+            row = [];
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        
+        if (row.length > 0 || current !== "") {
+          row.push(current.trim());
+          result.push(row);
+        }
+        
+        return result;
+      };
+
+      const parsed = parseCSV(text);
+      if (parsed.length < 2) {
+        alert("El archivo CSV está vacío o es inválido");
+        return;
+      }
+      
+      const headers = parsed[0];
+      const rows = parsed.slice(1);
+      
+      // Validar consistencia de columnas
+      const inconsistentRowIndex = rows.findIndex((r) => r.length !== headers.length);
+      if (inconsistentRowIndex !== -1) {
+        alert(`Error de Consistencia: La fila ${inconsistentRowIndex + 2} tiene ${rows[inconsistentRowIndex].length} columnas, pero la cabecera espera ${headers.length} columnas.`);
+        return;
+      }
+
+      setPreviewHeaders(headers);
       setPreviewRows(rows.slice(0, 5));
       setPendingImportRows(rows);
+      setImportStoreId("");
       setShowImportPreview(true);
     };
     reader.readAsText(file);
@@ -366,6 +521,16 @@ export default function InventoryPage() {
 
   const submitImport = async () => {
     if (!user || !pendingImportRows.length) return;
+
+    // Validación previa para SUPER_ADMIN: debe haber seleccionado una tienda si alguna fila no tiene storeId
+    if (user.role === "SUPER_ADMIN" && !importStoreId && pendingImportRows.some(row => {
+      const storeIdIdx = previewHeaders.indexOf("storeId");
+      return storeIdIdx === -1 || !row[storeIdIdx];
+    })) {
+      setImportErrors(["Debe seleccionar una tienda para asignar los productos importados sin tienda."]);
+      return;
+    }
+
     setSaving(true);
     setImportErrors([]);
     try {
@@ -373,9 +538,11 @@ export default function InventoryPage() {
         .map((row) => { const o: any = {}; previewHeaders.forEach((h, i) => { if (row[i]) o[h] = row[i]; }); return o; })
         .filter((o) => Object.keys(o).length)
         .map((o) => ({
-          ...o, id: o.id ? Number(o.id) : undefined,
-          storeId: o.storeId ? Number(o.storeId) : user.role === "STORE" && user.storeId ? user.storeId : undefined,
-          price: o.price ? Number(o.price) : 0, stockQty: o.stockQty ? Number(o.stockQty) : undefined,
+          ...o,
+          id: o.id ? Number(o.id) : undefined,
+          storeId: o.storeId ? Number(o.storeId) : (user.role === "SUPER_ADMIN" ? Number(importStoreId) : (user.storeId || undefined)),
+          price: o.price ? Number(o.price) : 0,
+          stockQty: o.stockQty ? Number(o.stockQty) : undefined,
           inStock: o.inStock ? String(o.inStock).toLowerCase() === "true" : true,
         }));
       const valid = items.filter((i) => i.name && i.slug && i.price !== undefined);
@@ -570,7 +737,7 @@ export default function InventoryPage() {
                     Precio {sortField === "price" && (sortDir === "asc" ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
                   </button>
                   <span>Categoría</span>
-                  {user?.role === "ADMIN" && <span>Tienda</span>}
+                  {user?.role === "SUPER_ADMIN" && <span>Tienda</span>}
                 </>
               )}
               {activeTab === "ar" && (
@@ -626,7 +793,7 @@ export default function InventoryPage() {
                         {p.category && <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{p.category}</span>}
                         {p.room && <span className="text-[10px] text-slate-500">{p.room}</span>}
                       </div>
-                      {user?.role === "ADMIN" && <span className="text-xs text-slate-600 hidden sm:block truncate">{p.store?.name || "—"}</span>}
+                      {user?.role === "SUPER_ADMIN" && <span className="text-xs text-slate-600 hidden sm:block truncate">{p.store?.name || "—"}</span>}
                     </>
                   )}
 
@@ -774,6 +941,24 @@ export default function InventoryPage() {
               <h2 className="text-lg font-bold text-slate-900">Vista previa de importación</h2>
               <p className="text-xs text-slate-500">{pendingImportRows.length} filas encontradas</p>
             </div>
+            {/* Super Admin Store Selector inside Import Modal */}
+            {user?.role === "SUPER_ADMIN" && (
+              <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Asignar a Tienda (Superadmin):</label>
+                <select
+                  value={importStoreId}
+                  onChange={(e) => setImportStoreId(e.target.value)}
+                  className="flex-1 max-w-xs px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#0058a3] bg-white"
+                >
+                  <option value="">Seleccionar tienda...</option>
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="px-6 py-4 max-h-[50vh] overflow-auto">
               <table className="min-w-full text-xs">
                 <thead><tr>{previewHeaders.map((h) => <th key={h} className="px-2 py-1 bg-slate-50 font-bold text-slate-600 text-left">{h}</th>)}</tr></thead>
@@ -811,11 +996,11 @@ export default function InventoryPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Tienda</label>
-                  <select disabled={user?.role === "STORE"} value={form.storeId ?? ""}
+                  <select disabled={user?.role !== "SUPER_ADMIN"} value={form.storeId ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, storeId: e.target.value ? Number(e.target.value) : undefined }))}
                     className={`w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:border-[#0058a3] ${formErrors.storeId ? "border-red-300" : "border-slate-200"}`}>
                     <option value="">Seleccionar</option>
-                    {(user?.role === "STORE" && user.storeId ? stores.filter((s) => s.id === user.storeId) : stores).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {((user && user.role !== "SUPER_ADMIN" && user.storeId) ? stores.filter((s) => s.id === user.storeId) : stores).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   {formErrors.storeId && <p className="text-[10px] text-red-600 mt-0.5">{formErrors.storeId}</p>}
                 </div>
@@ -841,13 +1026,81 @@ export default function InventoryPage() {
                 </div>
               </div>
 
-              {/* Dimensions */}
-              <div>
-                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Dimensiones (cm)</p>
-                <div className="grid grid-cols-3 gap-3">
+              {/* Dimensions & Weight */}
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/30 space-y-3">
+                <p className="text-xs font-bold text-slate-800 border-b border-slate-100 pb-1.5">Dimensiones Físicas y Peso</p>
+                <div className="grid grid-cols-4 gap-2">
                   {F("Ancho", "widthCm", { type: "number" })}
-                  {F("Profund.", "depthCm", { type: "number" })}
+                  {F("Prof.", "depthCm", { type: "number" })}
                   {F("Alto", "heightCm", { type: "number" })}
+                  {F("Peso (kg)", "weightKg", { type: "number", placeholder: "10" })}
+                </div>
+              </div>
+
+              {/* Packaging Dimensions */}
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/30 space-y-3">
+                <p className="text-xs font-bold text-slate-800 border-b border-slate-100 pb-1.5">Dimensiones de Embalaje (Caja)</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {F("Ancho", "packageWidthCm", { type: "number" })}
+                  {F("Prof.", "packageDepthCm", { type: "number" })}
+                  {F("Alto", "packageHeightCm", { type: "number" })}
+                  {F("Peso (kg)", "packageWeightKg", { type: "number" })}
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  {F("Bultos", "piecesCount", { type: "number", placeholder: "1" })}
+                  <div className="flex items-center gap-2 pt-5">
+                    <input type="checkbox" id="specialHandling" checked={form.specialHandling}
+                      onChange={(e) => setForm((f) => ({ ...f, specialHandling: e.target.checked }))}
+                      className="h-4 w-4 rounded accent-[#0058a3]" />
+                    <label htmlFor="specialHandling" className="text-xs font-semibold text-slate-700 cursor-pointer">Cuidado Especial</label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Logistics & Delivery */}
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/30 space-y-3">
+                <p className="text-xs font-bold text-slate-800 border-b border-slate-100 pb-1.5">Logística de Entrega</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {F("Días Mín.", "deliveryMinDays", { type: "number", placeholder: "2" })}
+                  {F("Días Máx.", "deliveryMaxDays", { type: "number", placeholder: "7" })}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Tipo Envío</label>
+                    <select value={form.deliveryType}
+                      onChange={(e) => setForm((f) => ({ ...f, deliveryType: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3] bg-white">
+                      <option value="home">A Domicilio</option>
+                      <option value="branch">A Sucursal</option>
+                      <option value="pickup">Retiro Local</option>
+                      <option value="multiple">Múltiple</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Assembly info */}
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/30 space-y-3">
+                <p className="text-xs font-bold text-slate-800 border-b border-slate-100 pb-1.5">Servicio de Armado</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 pt-4">
+                    <input type="checkbox" id="assemblyIncluded" checked={form.assemblyIncluded}
+                      onChange={(e) => setForm((f) => ({ ...f, assemblyIncluded: e.target.checked }))}
+                      className="h-4 w-4 rounded accent-[#0058a3]" />
+                    <label htmlFor="assemblyIncluded" className="text-xs font-semibold text-slate-700 cursor-pointer">Armado Incluido</label>
+                  </div>
+                  {!form.assemblyIncluded && F("Precio ($)", "assemblyPrice", { type: "number", placeholder: "Opcional" })}
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  {F("Tiempo (min)", "assemblyTimeMinutes", { type: "number", placeholder: "Ej. 45" })}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">Dificultad</label>
+                    <select value={form.assemblyDifficulty}
+                      onChange={(e) => setForm((f) => ({ ...f, assemblyDifficulty: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-[#0058a3] bg-white">
+                      <option value="easy">Fácil</option>
+                      <option value="medium">Medio</option>
+                      <option value="professional">Profesional</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
