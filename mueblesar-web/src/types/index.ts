@@ -336,6 +336,7 @@ export interface Store {
   phone?: string | null;
   website?: string | null;
   socialInstagram?: string | null;
+  maxProducts?: number;
   _count?: {
     products: number;
   };

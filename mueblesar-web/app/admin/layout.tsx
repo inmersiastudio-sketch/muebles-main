@@ -53,9 +53,6 @@ function breadcrumbLabel(path: string, part: string) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<SessionUser | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
-    const [login, setLogin] = useState({ email: "", password: "" });
-    const [authError, setAuthError] = useState<string | null>(null);
-    const [loginLoading, setLoginLoading] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -86,31 +83,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         fetchSession();
     }, [apiBase]);
 
-    const handleLogin = async (event: React.FormEvent) => {
-        event.preventDefault();
-        setAuthError(null);
-        setLoginLoading(true);
-        try {
-            const res = await fetch(`${apiBase}/api/auth/login`, {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify(login),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                setAuthError((data as { error?: string }).error || "Credenciales incorrectas");
-                return;
-            }
-            const nextUser = (data as { user?: SessionUser }).user ?? (data as SessionUser | null);
-            setUser(nextUser);
-            setLogin({ email: "", password: "" });
-        } catch (error) {
-            setAuthError((error as Error).message);
-        } finally {
-            setLoginLoading(false);
+    useEffect(() => {
+        if (!authLoading && !user) {
+            router.push("/login");
         }
-    };
+    }, [authLoading, user, router]);
 
     const handleLogout = async () => {
         try {
@@ -119,7 +96,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             // The local session is still cleared if the remote request fails.
         }
         setUser(null);
-        router.push("/admin");
+        router.push("/login");
     };
 
     const breadcrumbs = useMemo(() => {
@@ -138,78 +115,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <span className="text-xl font-black text-white">A</span>
                 </div>
                 <Loader2 className="h-5 w-5 animate-spin text-[#0058a3]" />
-                <p className="text-sm font-medium text-slate-500">Cargando portal...</p>
             </div>
         );
     }
 
     if (!user) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-[#002f5e] p-4">
-                <div className="w-full max-w-md">
-                    <div className="mb-8 text-center">
-                        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-xl bg-[#0058a3] shadow-lg shadow-[#0058a3]/30">
-                            <span className="text-2xl font-black text-white">A</span>
-                        </div>
-                        <h1 className="text-3xl font-extrabold text-white">Portal de Mueblerias</h1>
-                        <p className="mt-2 text-sm text-slate-400">Iniciá sesión para gestionar productos y consultas.</p>
-                    </div>
-
-                    <form onSubmit={handleLogin} className="space-y-5 rounded-lg border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
-                        {authError && (
-                            <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300">
-                                {authError}
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-300">Email</label>
-                            <input
-                                type="email"
-                                value={login.email}
-                                onChange={(event) => setLogin((previous) => ({ ...previous, email: event.target.value }))}
-                                placeholder="tu@muebleria.com"
-                                required
-                                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-slate-500 transition-colors focus:border-[#0058a3] focus:outline-none focus:ring-2 focus:ring-[#0058a3]/20"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-300">Contrasena</label>
-                            <input
-                                type="password"
-                                value={login.password}
-                                onChange={(event) => setLogin((previous) => ({ ...previous, password: event.target.value }))}
-                                placeholder="********"
-                                required
-                                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-slate-500 transition-colors focus:border-[#0058a3] focus:outline-none focus:ring-2 focus:ring-[#0058a3]/20"
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loginLoading || !login.email || !login.password}
-                            className="w-full rounded-lg bg-[#0058a3] py-3.5 text-sm font-bold text-white shadow-lg shadow-[#0058a3]/30 transition-colors hover:bg-[#004f93] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {loginLoading ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <Loader2 className="h-4 w-4 animate-spin" /> Ingresando...
-                                </span>
-                            ) : "Iniciar sesión"}
-                        </button>
-
-                        <div className="flex items-center justify-between pt-2 text-sm">
-                            <Link href="/recuperar-contrasena" className="font-medium text-slate-400 transition-colors hover:text-white">
-                                Olvidaste tu contrasena?
-                            </Link>
-                            <Link href="/registrar" className="font-bold text-[#3b8fd4] transition-colors hover:text-white">
-                                Registrar muebleria
-                            </Link>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     return (

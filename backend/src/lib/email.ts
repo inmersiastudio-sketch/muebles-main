@@ -9,7 +9,7 @@ export type EmailDeliveryResult =
   | { ok: false; error: string; reason: "not_configured" | "provider_error" };
 
 export function isEmailDeliveryConfigured(): boolean {
-  return resend !== null;
+  return resend !== null || env.NODE_ENV === "development";
 }
 
 export async function sendEmail(
@@ -18,6 +18,23 @@ export async function sendEmail(
   html: string,
 ): Promise<EmailDeliveryResult> {
   if (!resend) {
+    if (env.NODE_ENV === "development") {
+      console.log("\n==================================================");
+      console.log(`📧 [EMAIL SIMULADO EN DESARROLLO]`);
+      console.log(`Para: ${to}`);
+      console.log(`Asunto: ${subject}`);
+      console.log("--------------------------------------------------");
+      // Intentar extraer el enlace del HTML para facilitar el copiado
+      const linkMatch = html.match(/href="([^"]+)"/);
+      if (linkMatch && linkMatch[1]) {
+        console.log(`Enlace de acción: ${linkMatch[1]}`);
+      }
+      console.log("--------------------------------------------------");
+      console.log(`Contenido HTML simplificado:\n`, html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+      console.log("==================================================\n");
+      return { ok: true, id: "mock-email-id-" + Date.now() };
+    }
+
     console.error("[email] Delivery skipped: RESEND_API_KEY is not configured.");
     return {
       ok: false,

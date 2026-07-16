@@ -150,6 +150,8 @@ const CreateProductSchema = z.object({
 const UpdateProductSchema = CreateProductSchema.partial().extend({
     // En update, el SKU puede no cambiar
     sku: z.string().min(1).optional(),
+    featured: z.boolean().optional(),
+    stockQty: z.coerce.number().int().nonnegative().optional(),
 });
 
 // ============================================
@@ -194,6 +196,28 @@ function calculateVolume(dimensions: any): number {
     return Math.round(volume * 100) / 100; // 2 decimales
 }
 
+// Helper para mapear URLs planas a la estructura media de Zod/Prisma
+function mapFlatMediaToRequestMedia(req: Request) {
+    if (req.body.imageUrl || req.body.glbUrl || req.body.usdzUrl || req.body.arUrl) {
+        const media = req.body.media && Array.isArray(req.body.media) ? [...req.body.media] : [];
+        
+        if (req.body.imageUrl && !media.some((m: any) => m.url === req.body.imageUrl)) {
+            media.push({ type: 'IMAGE', url: req.body.imageUrl, isPrimary: true });
+        }
+        if (req.body.glbUrl && !media.some((m: any) => m.url === req.body.glbUrl)) {
+            media.push({ type: 'MODEL_3D', url: req.body.glbUrl, mediaFormat: 'GLB' });
+        }
+        if (req.body.usdzUrl && !media.some((m: any) => m.url === req.body.usdzUrl)) {
+            media.push({ type: 'MODEL_3D', url: req.body.usdzUrl, mediaFormat: 'USDZ' });
+        }
+        if (req.body.arUrl && req.body.arUrl !== req.body.glbUrl && req.body.arUrl !== req.body.usdzUrl && !media.some((m: any) => m.url === req.body.arUrl)) {
+            media.push({ type: 'MODEL_3D', url: req.body.arUrl });
+        }
+        
+        req.body.media = media;
+    }
+}
+
 // ============================================
 // RUTAS ADMIN
 // ============================================
@@ -203,6 +227,9 @@ function calculateVolume(dimensions: any): number {
  * Crear producto completo con transacción
  */
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
+        // Mapear URLs planas de imágenes/AR al array de multimedia
+        mapFlatMediaToRequestMedia(req);
+
         // 1. Validar input
         const data = CreateProductSchema.parse(req.body);
 
@@ -220,7 +247,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
 
         if (store) {
             const productCount = await prisma.product.count({
-                where: { storeId }
+                where: { storeId, isActive: true }
             });
             if (productCount >= store.maxProducts) {
                 return res.status(403).json({ 
@@ -379,12 +406,306 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
     })
 );
 
+// Esquema de validación para importación masiva por fila
+const BulkItemSchema = z.object({
+    id: z.coerce.number().int().positive().optional().nullable(),
+    storeId: z.coerce.number().int().positive().optional().nullable(),
+    name: z.string().min(1, "El nombre del producto es requerido").max(200),
+    price: z.coerce.number().nonnegative("El precio debe ser un número positivo"),
+    category: z.string().min(1, "La categoría es requerida"),
+    room: z.string().optional().nullable(),
+    style: z.string().optional().nullable(),
+    inStock: z.preprocess((val) => val === true || val === 'true' || String(val).toLowerCase() === 'true', z.boolean()).default(true),
+    stockQty: z.coerce.number().int().nonnegative("El stock debe ser un número entero no negativo").default(0),
+    imageUrl: z.string().optional().nullable(),
+    glbUrl: z.string().optional().nullable(),
+    usdzUrl: z.string().optional().nullable(),
+    arUrl: z.string().optional().nullable(),
+    widthCm: z.coerce.number().nonnegative().optional().nullable(),
+    depthCm: z.coerce.number().nonnegative().optional().nullable(),
+    heightCm: z.coerce.number().nonnegative().optional().nullable(),
+    weightKg: z.coerce.number().nonnegative().optional().nullable(),
+});
+
+/**
+ * POST /api/admin/products/bulk
+ * Importar / Crear productos en lote (bulk)
+ */
+router.post('/bulk', asyncHandler(async (req: Request, res: Response) => {
+    if (!Array.isArray(req.body)) {
+        return res.status(400).json({ error: 'El cuerpo de la solicitud debe ser un array de productos' });
+    }
+
+    const items = req.body;
+    let created = 0;
+    let updated = 0;
+
+    // Obtener storeId del usuario autenticado
+    const authStoreId = (req as any).user?.storeId;
+    const isSuperAdmin = (req as any).user?.role === UserRole.SUPER_ADMIN;
+
+    // 1. Validar todas las filas con el esquema estricto Zod
+    const validatedItems: any[] = [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const parsed = BulkItemSchema.safeParse(item);
+        if (!parsed.success) {
+            const errorMsgs = parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+            return res.status(400).json({ error: `Fila ${i + 2} inválida: ${errorMsgs}` });
+        }
+        validatedItems.push(parsed.data);
+    }
+
+    // 2. Verificar límites de productos por tienda
+    const newCreationsCountByStore: Record<number, number> = {};
+    for (const item of validatedItems) {
+        if (!item.id) {
+            const storeId = isSuperAdmin && item.storeId ? Number(item.storeId) : authStoreId;
+            if (!storeId) {
+                return res.status(400).json({ error: `No se especificó una tienda válida para el producto "${item.name}"` });
+            }
+            newCreationsCountByStore[storeId] = (newCreationsCountByStore[storeId] || 0) + 1;
+        }
+    }
+
+    // Consultar límites y conteos actuales de catálogo
+    for (const [storeIdStr, count] of Object.entries(newCreationsCountByStore)) {
+        const storeId = Number(storeIdStr);
+        const store = await prisma.store.findUnique({
+            where: { id: storeId },
+            select: { name: true, maxProducts: true }
+        });
+        if (store) {
+            const productCount = await prisma.product.count({
+                where: { storeId, isActive: true }
+            });
+            if (productCount + count > store.maxProducts) {
+                return res.status(403).json({
+                    error: `Límite de catálogo alcanzado en la tienda "${store.name}". Capacidad restante: ${store.maxProducts - productCount} productos. Intentaste importar ${count} nuevos.`
+                });
+            }
+        }
+    }
+
+    // 3. Ejecutar la transacción para crear o actualizar
+    await prisma.$transaction(async (tx) => {
+        for (let i = 0; i < validatedItems.length; i++) {
+            const item = validatedItems[i];
+            const storeId = isSuperAdmin && item.storeId ? Number(item.storeId) : authStoreId;
+
+            if (!storeId) {
+                throw new Error(`Fila ${i + 2}: No se especificó una tienda válida`);
+            }
+
+            const price = item.price;
+            const stockQty = item.stockQty;
+
+            // Mapeo de dimensiones
+            const widthCm = Number(item.widthCm) || 0;
+            const depthCm = Number(item.depthCm) || 0;
+            const heightCm = Number(item.heightCm) || 0;
+            const weightKg = Number(item.weightKg) || 10;
+
+            let dimensionsObj: any = Prisma.JsonNull;
+            if (widthCm > 0 || depthCm > 0 || heightCm > 0) {
+                const vol = (widthCm * depthCm * heightCm) / 1000000;
+                dimensionsObj = {
+                    widthCm,
+                    depthCm,
+                    heightCm,
+                    weightKg,
+                    volumeM3: Math.round(vol * 100) / 100
+                };
+            }
+
+            if (item.id) {
+                // UPDATE
+                const productId = Number(item.id);
+                // Verificar que el producto pertenece a la tienda
+                const existing = await tx.product.findFirst({
+                    where: { id: productId, storeId },
+                });
+                if (!existing) {
+                    throw new Error(`Fila ${i + 2}: Producto con ID ${productId} no encontrado o no pertenece a tu tienda`);
+                }
+
+                // Generar slug si cambió de nombre
+                let slug = existing.slug;
+                if (item.name !== existing.name) {
+                    slug = await generateUniqueSlug(item.name, productId);
+                }
+
+                await tx.product.update({
+                    where: { id: productId },
+                    data: {
+                        name: item.name,
+                        slug,
+                        category: item.category || existing.category,
+                        room: item.room || existing.room,
+                        style: item.style || existing.style,
+                        dimensions: dimensionsObj !== Prisma.JsonNull ? dimensionsObj : undefined,
+                    },
+                });
+
+                // Actualizar pricing
+                await tx.productPricing.upsert({
+                    where: { productId },
+                    update: { salePrice: price, listPrice: price },
+                    create: { currency: 'ARS', salePrice: price, listPrice: price, productId },
+                });
+
+                // Actualizar variante por defecto
+                const defaultVariant = await tx.productVariant.findFirst({
+                    where: { productId, isDefault: true },
+                });
+                if (defaultVariant) {
+                    await tx.productVariant.update({
+                        where: { id: defaultVariant.id },
+                        data: {
+                            name: item.name,
+                            salePrice: price,
+                            listPrice: price,
+                            stock: stockQty,
+                        },
+                    });
+                }
+
+                // Sincronizar stock total
+                const variants = await tx.productVariant.findMany({ where: { productId } });
+                const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
+
+                await tx.productInventory.update({
+                    where: { productId },
+                    data: {
+                        totalStock,
+                        availableStock: totalStock,
+                        trackStock: true,
+                    },
+                });
+
+                // Actualizar media (eliminar anteriores y recrear)
+                await tx.productMedia.deleteMany({ where: { productId } });
+                if (item.imageUrl) {
+                    await tx.productMedia.create({
+                        data: { productId, url: item.imageUrl, type: 'IMAGE', isPrimary: true }
+                    });
+                }
+                if (item.glbUrl) {
+                    await tx.productMedia.create({
+                        data: { productId, url: item.glbUrl, type: 'MODEL_3D', mediaFormat: 'GLB' }
+                    });
+                }
+                if (item.usdzUrl) {
+                    await tx.productMedia.create({
+                        data: { productId, url: item.usdzUrl, type: 'MODEL_3D', mediaFormat: 'USDZ' }
+                    });
+                }
+                if (item.arUrl && item.arUrl !== item.glbUrl && item.arUrl !== item.usdzUrl) {
+                    await tx.productMedia.create({
+                        data: { productId, url: item.arUrl, type: 'MODEL_3D' }
+                    });
+                }
+
+                updated++;
+            } else {
+                // CREATE
+                const slug = await generateUniqueSlug(item.name);
+                const sku = `SKU-${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+                const newProduct = await tx.product.create({
+                    data: {
+                        sku,
+                        slug,
+                        name: item.name,
+                        description: item.description || '',
+                        storeId,
+                        category: item.category || 'Varios',
+                        room: item.room || '',
+                        style: item.style || '',
+                        isActive: true, // Siempre activo por defecto
+                        isFeatured: false,
+                        dimensions: dimensionsObj,
+                        materials: Prisma.JsonNull,
+                        warranty: Prisma.JsonNull,
+                        logistics: Prisma.JsonNull,
+                        seo: {
+                            metaTitle: item.name,
+                            metaDescription: (item.description || '').substring(0, 160),
+                            keywords: [],
+                        },
+                    },
+                });
+
+                // Crear pricing
+                await tx.productPricing.create({
+                    data: { currency: 'ARS', salePrice: price, listPrice: price, productId: newProduct.id },
+                });
+
+                // Crear variante por defecto
+                await tx.productVariant.create({
+                    data: {
+                        sku,
+                        name: item.name,
+                        listPrice: price,
+                        salePrice: price,
+                        currency: 'ARS',
+                        stock: stockQty,
+                        isDefault: true,
+                        productId: newProduct.id,
+                    },
+                });
+
+                // Crear inventario inicial
+                await tx.productInventory.create({
+                    data: {
+                        productId: newProduct.id,
+                        totalStock: stockQty,
+                        availableStock: stockQty,
+                        trackStock: true,
+                    },
+                });
+
+                // Crear media
+                if (item.imageUrl) {
+                    await tx.productMedia.create({
+                        data: { productId: newProduct.id, url: item.imageUrl, type: 'IMAGE', isPrimary: true }
+                    });
+                }
+                if (item.glbUrl) {
+                    await tx.productMedia.create({
+                        data: { productId: newProduct.id, url: item.glbUrl, type: 'MODEL_3D', mediaFormat: 'GLB' }
+                    });
+                }
+                if (item.usdzUrl) {
+                    await tx.productMedia.create({
+                        data: { productId: newProduct.id, url: item.usdzUrl, type: 'MODEL_3D', mediaFormat: 'USDZ' }
+                    });
+                }
+                if (item.arUrl && item.arUrl !== item.glbUrl && item.arUrl !== item.usdzUrl) {
+                    await tx.productMedia.create({
+                        data: { productId: newProduct.id, url: item.arUrl, type: 'MODEL_3D' }
+                    });
+                }
+
+                created++;
+            }
+        }
+    });
+
+    res.json({ success: true, created, updated });
+}));
+
 /**
  * PUT /api/admin/products/:id
+
  * Actualizar producto completo con transacción
  */
 router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
         const productId = parseInt(req.params.id);
+        
+        // Mapear URLs planas de imágenes/AR al array de multimedia
+        mapFlatMediaToRequestMedia(req);
+
         const data = UpdateProductSchema.parse(req.body);
 
         // Verificar que el producto existe y pertenece al usuario
@@ -426,6 +747,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
             if (data.tags) updateData.tags = data.tags;
             if (data.isActive !== undefined) updateData.isActive = data.isActive;
             if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured;
+            if (data.featured !== undefined) updateData.isFeatured = data.featured;
 
             // JSON fields
             if (data.dimensions) {
@@ -443,6 +765,35 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
                 where: { id: productId },
                 data: updateData,
             });
+
+            // 1.5. Actualizar stockQty en variante por defecto si se envió
+            if (data.stockQty !== undefined) {
+                const defaultVariant = existingProduct.variants.find(v => v.isDefault) || existingProduct.variants[0];
+                if (defaultVariant) {
+                    await tx.productVariant.update({
+                        where: { id: defaultVariant.id },
+                        data: { stock: data.stockQty },
+                    });
+
+                    // Recalcular totalStock con el nuevo stock de la variante por defecto
+                    const otherVariants = existingProduct.variants.filter(v => v.id !== defaultVariant.id);
+                    const totalStock = otherVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0) + data.stockQty;
+
+                    await tx.productInventory.upsert({
+                        where: { productId },
+                        update: {
+                            totalStock,
+                            availableStock: totalStock,
+                        },
+                        create: {
+                            productId,
+                            totalStock,
+                            availableStock: totalStock,
+                            trackStock: true,
+                        },
+                    });
+                }
+            }
 
             // 2. Manejar variantes (si se enviaron)
             if (data.variants && data.variants.length > 0) {
@@ -676,10 +1027,11 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         }
 
         const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 20;
+        const limitQuery = req.query.limit as string;
+        const limit = limitQuery === 'all' ? 10000 : (parseInt(limitQuery) || 20);
         const search = req.query.search as string;
 
-        const where: any = { storeId };
+        const where: any = { storeId, isActive: true };
 
         if (search) {
             where.OR = [
@@ -692,7 +1044,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
             prisma.product.findMany({
                 where,
                 take: limit,
-                skip: (page - 1) * limit,
+                skip: limitQuery === 'all' ? 0 : (page - 1) * limit,
                 orderBy: { createdAt: 'desc' },
                 include: {
                     variants: {
@@ -704,21 +1056,61 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
                             isDefault: true,
                         },
                     },
+                    pricing: {
+                        select: {
+                            salePrice: true,
+                            listPrice: true,
+                        },
+                    },
                     inventory: {
                         select: { availableStock: true },
                     },
                     media: {
-                        where: { isPrimary: true },
-                        take: 1,
-                        select: { url: true },
+                        select: {
+                            id: true,
+                            type: true,
+                            url: true,
+                            isPrimary: true,
+                            mediaFormat: true,
+                        },
                     },
                 },
             }),
             prisma.product.count({ where }),
         ]);
 
+        const mappedProducts = products.map((p) => {
+            const defaultVariant = p.variants.find((v) => v.isDefault) || p.variants[0];
+            const price = defaultVariant?.salePrice ?? p.pricing?.salePrice ?? 0;
+            const stockQty = p.inventory?.availableStock ?? 0;
+            const dims = p.dimensions as any;
+
+            // Reconstruir URLs de multimedia desde ProductMedia
+            const imageUrl = p.media.find(m => m.type === 'IMAGE' && m.isPrimary)?.url || p.media.find(m => m.type === 'IMAGE')?.url || null;
+            const glbUrl = p.media.find(m => m.type === 'MODEL_3D' && m.mediaFormat === 'GLB')?.url || null;
+            const usdzUrl = p.media.find(m => m.type === 'MODEL_3D' && m.mediaFormat === 'USDZ')?.url || null;
+            const arUrl = p.media.find(m => m.type === 'MODEL_3D' && !m.mediaFormat)?.url || p.media.find(m => m.type === 'MODEL_3D')?.url || null;
+
+            // Inyectar estado lógico inStock
+            const inStock = stockQty > 0;
+
+            return {
+                ...p,
+                price,
+                stockQty,
+                inStock,
+                imageUrl,
+                glbUrl,
+                usdzUrl,
+                arUrl,
+                widthCm: dims?.widthCm || null,
+                depthCm: dims?.depthCm || null,
+                heightCm: dims?.heightCm || null,
+            };
+        });
+
         res.json({
-            items: products,
+            items: mappedProducts,
             pagination: {
                 page,
                 limit,

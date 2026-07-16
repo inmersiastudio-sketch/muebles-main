@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const uaIsIOS = (ua: string) => /iphone|ipad|ipod/.test(ua.toLowerCase());
@@ -13,11 +13,33 @@ export default function ARRedirectPage() {
   );
 }
 
+function replaceLocalhost(url: string | null | undefined): string {
+  if (!url) return "";
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    return url
+      .replace(/localhost:3001/g, `${window.location.hostname}:3001`)
+      .replace(/127\.0\.0\.1:3001/g, `${window.location.hostname}:3001`)
+      .replace(/localhost:3000/g, `${window.location.hostname}:3000`)
+      .replace(/127\.0\.0\.1:3000/g, `${window.location.hostname}:3000`);
+  }
+  return url;
+}
+
 function ARRedirectContent() {
   const params = useSearchParams();
-  const glb = params.get("glb") ?? "";
-  const usdz = params.get("usdz") ?? "";
+  const rawGlb = params.get("glb") ?? "";
+  const rawUsdz = params.get("usdz") ?? "";
+  const glb = replaceLocalhost(rawGlb);
+  const usdz = replaceLocalhost(rawUsdz);
   const title = params.get("title") ?? "Modelo AR";
+
+  const [isClientIOS, setIsClientIOS] = useState(false);
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && uaIsIOS(navigator.userAgent)) {
+      setIsClientIOS(true);
+    }
+  }, []);
 
   const track = (name: string, props?: Record<string, unknown>) => {
     console.info("[ar-event]", name, props ?? {});
@@ -67,11 +89,11 @@ function ARRedirectContent() {
   }, [glb, sceneViewerHttps, usdz]);
 
   const fallbackAndroid = sceneViewerHttps || glb;
-  const fallbackIOS = usdz || "";
+  const fallbackIOS = usdz ? `${usdz}#ar` : "";
 
   // If we are on iOS, show a big "Open AR" button. 
   // Apple strictly requires a click on <a rel="ar"> to trigger AR Quick Look.
-  if (typeof navigator !== "undefined" && uaIsIOS(navigator.userAgent) && fallbackIOS) {
+  if (isClientIOS && fallbackIOS) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-10 text-center">
         <div className="w-full max-w-sm space-y-6 rounded-3xl bg-white p-8 shadow-xl">

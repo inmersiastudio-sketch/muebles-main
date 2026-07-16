@@ -68,6 +68,28 @@ export type FormState = {
   images: { url: string; type?: string }[];
   inStock: boolean;
   stockQty: string;
+
+  // Logística y dimensiones físicas
+  weightKg: string;
+  packageWidthCm: string;
+  packageHeightCm: string;
+  packageDepthCm: string;
+  packageWeightKg: string;
+
+  // Tiempos de entrega
+  deliveryMinDays: string;
+  deliveryMaxDays: string;
+  deliveryType: string;
+
+  // Armado
+  assemblyIncluded: boolean;
+  assemblyPrice: string;
+  assemblyTimeMinutes: string;
+  assemblyDifficulty: string;
+
+  // Empaque
+  piecesCount: string;
+  specialHandling: boolean;
 };
 
 export const emptyForm: FormState = {
@@ -92,6 +114,22 @@ export const emptyForm: FormState = {
   images: [],
   inStock: true,
   stockQty: "",
+
+  // Valores por defecto
+  weightKg: "",
+  packageWidthCm: "",
+  packageHeightCm: "",
+  packageDepthCm: "",
+  packageWeightKg: "",
+  deliveryMinDays: "2",
+  deliveryMaxDays: "7",
+  deliveryType: "home",
+  assemblyIncluded: false,
+  assemblyPrice: "",
+  assemblyTimeMinutes: "",
+  assemblyDifficulty: "easy",
+  piecesCount: "1",
+  specialHandling: false,
 };
 
 export const isValidUrl = (value: string) => {

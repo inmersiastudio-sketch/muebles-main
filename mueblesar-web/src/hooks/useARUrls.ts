@@ -34,6 +34,18 @@ interface UseARUrlsOptions {
   apiBase: string;
 }
 
+function replaceLocalhost(url: string | null | undefined): string {
+  if (!url) return "";
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    return url
+      .replace(/localhost:3001/g, `${window.location.hostname}:3001`)
+      .replace(/127\.0\.0\.1:3001/g, `${window.location.hostname}:3001`)
+      .replace(/localhost:3000/g, `${window.location.hostname}:3000`)
+      .replace(/127\.0\.0\.1:3000/g, `${window.location.hostname}:3000`);
+  }
+  return url;
+}
+
 export function useARUrls({
   glbUrl: propGlbUrl,
   usdzUrl: propUsdzUrl,
@@ -44,8 +56,9 @@ export function useARUrls({
   return useMemo(() => {
     // Use new separate fields first, fallback to arUrl for backward compatibility
     // Note: arUrl is now treated as a simple string URL, NOT a JSON object
-    const parsedGlb = propGlbUrl || arUrl || "";
-    let parsedUsdz = propUsdzUrl;
+    const rawGlb = propGlbUrl || arUrl || "";
+    const parsedGlb = replaceLocalhost(rawGlb);
+    let parsedUsdz = replaceLocalhost(propUsdzUrl);
 
     // If no explicit USDZ, try to derive from GLB
     if (!parsedUsdz && parsedGlb) {
@@ -73,7 +86,7 @@ export function useARUrls({
     return {
       glbUrl: proxiedGlb ?? parsedGlb,
       glbUrlOriginal: urlForMobile,
-      iosUrl: parsedUsdz || undefined,
+      iosUrl: parsedUsdz ? `${parsedUsdz}#ar` : undefined,
       androidIntent: intent ?? parsedGlb,
       sceneViewerHttps: httpsViewer ?? parsedGlb,
       isMeshy,

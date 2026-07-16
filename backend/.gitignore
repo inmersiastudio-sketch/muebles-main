@@ -12,3 +12,6 @@ result.txt
 result-utf8.json
 ts_errors.txt
 ts_errors_utf8.txt
+
+# Local static assets
+public/models/

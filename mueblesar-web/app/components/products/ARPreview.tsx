@@ -19,6 +19,7 @@ interface ARPreviewProps {
   widthCm?: number | null;
   depthCm?: number | null;
   heightCm?: number | null;
+  variant?: "default" | "compact";
 }
 
 type Vec3 = { x: number; y: number; z: number };
@@ -33,6 +34,7 @@ export function ARPreview({
   widthCm,
   depthCm,
   heightCm,
+  variant = "default",
 }: ARPreviewProps) {
   const [open, setOpen] = useState(false);
   const [origin, setOrigin] = useState<string>("");
@@ -314,18 +316,36 @@ export function ARPreview({
     }
   };
 
+  const mobileARLink = useMemo(() => {
+    if (isIOS) return iosUrl || "";
+    return androidIntent || "";
+  }, [isIOS, iosUrl, androidIntent]);
+
   return (
     <>
-      <button
-        className="h-12 w-full rounded-xl font-bold bg-[#1d4ed8] hover:bg-[#1e40af] text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm"
-        onClick={() => {
-          track("ar_click", { hasIos: Boolean(iosUrl) });
-          setOpen(true);
-        }}
-      >
-        <Box className="w-5 h-5" />
-        Ver en mi casa (AR)
-      </button>
+      {variant === "compact" ? (
+        <button
+          className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition-all shadow-sm"
+          onClick={() => {
+            track("ar_click", { hasIos: Boolean(iosUrl) });
+            setOpen(true);
+          }}
+          title="Ver en AR (Móvil/3D)"
+        >
+          <Box className="w-3.5 h-3.5" />
+        </button>
+      ) : (
+        <button
+          className="h-12 w-full rounded-xl font-bold bg-[#1d4ed8] hover:bg-[#1e40af] text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm"
+          onClick={() => {
+            track("ar_click", { hasIos: Boolean(iosUrl) });
+            setOpen(true);
+          }}
+        >
+          <Box className="w-5 h-5" />
+          Ver en mi casa (AR)
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 md:p-4">
@@ -384,14 +404,14 @@ export function ARPreview({
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                     <Smartphone size={16} /> Abrir en este dispositivo
                   </div>
-                  <Button
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] font-bold text-white shadow-sm transition-all hover:bg-[#1e40af] active:scale-[0.98]"
-                    onClick={() => track("ar_launch", { target: redirectUrl || androidIntent })}
+                  <a
+                    href={mobileARLink || undefined}
+                    rel={isIOS ? "ar" : undefined}
+                    onClick={() => track("ar_launch", { target: mobileARLink })}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white font-bold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                   >
-                    <a href={redirectUrl || androidIntent} target="_blank" rel="noreferrer">
-                      Abrir experiencia AR
-                    </a>
-                  </Button>
+                    Abrir experiencia AR
+                  </a>
                   <p className="text-xs text-slate-600">
                     Si estás en iPhone y el modelo no tiene USDZ, Quick Look no funcionará y verás
                     descarga/errores.

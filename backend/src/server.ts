@@ -114,6 +114,18 @@ export function createServer() {
   app.use("/api/catalog", catalogRouter); // Rutas públicas de catálogo
   app.use("/api/inquiries", inquiriesRouter); // Sistema de consultas
   app.use("/api/admin/inquiries", adminInquiriesRouter); // Admin inquiry analytics
+  app.use("/public", express.static("public", {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".usdz")) {
+        res.setHeader("Content-Type", "model/vnd.usdz+zip");
+        // Ensure content-disposition is inline, not attachment
+        res.setHeader("Content-Disposition", "inline");
+      } else if (filePath.endsWith(".glb")) {
+        res.setHeader("Content-Type", "model/gltf-binary");
+        res.setHeader("Content-Disposition", "inline");
+      }
+    }
+  }));
   app.use(openapiRouter);
 
   // ── 404 Handler ─────────────────────────────────────────────
