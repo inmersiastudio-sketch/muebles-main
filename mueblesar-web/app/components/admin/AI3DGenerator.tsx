@@ -285,14 +285,14 @@ export function AI3DGenerator({ productId, productName, currentImageUrl, current
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div>
-        <h3 className="mb-1 font-semibold text-slate-900">🤖 AI 3D Model Generation</h3>
-        <p className="text-sm text-slate-600">Generate a 3D model from a product image using AI</p>
+        <h3 className="mb-1 font-semibold text-slate-900">🤖 Generación de Modelo 3D con IA</h3>
+        <p className="text-sm text-slate-600">Genera un modelo 3D interactivo a partir de las fotos de tus productos.</p>
       </div>
 
       {currentGlbUrl && (
         <div className="rounded border border-green-200 bg-green-50 p-3">
           <p className="text-sm text-green-800">
-            ✅ This product already has a 3D model:
+            ✅ Este producto ya cuenta con un modelo 3D activo:
           </p>
           <div className="mt-2 space-y-1">
             {currentGlbUrl && (
@@ -305,7 +305,7 @@ export function AI3DGenerator({ productId, productName, currentImageUrl, current
             )}
             {currentUsdzUrl && (
               <div>
-                <span className="text-xs text-green-700">USDZ: </span>
+                <span className="text-xs text-green-700">USDZ (AR): </span>
                 <a href={currentUsdzUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 underline hover:text-green-800 break-all">
                   {currentUsdzUrl}
                 </a>
@@ -317,9 +317,9 @@ export function AI3DGenerator({ productId, productName, currentImageUrl, current
       {currentArUrl && !currentGlbUrl && (
         <div className="rounded border border-green-200 bg-green-50 p-3">
           <p className="text-sm text-green-800">
-            ✅ This product already has a 3D model:{" "}
+            ✅ Este producto ya tiene un modelo 3D:{" "}
             <a href={currentArUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
-              View GLB
+              Ver GLB
             </a>
           </p>
         </div>
@@ -405,14 +405,15 @@ export function AI3DGenerator({ productId, productName, currentImageUrl, current
               setError(null);
             }}
           >
-            Generate Again
+            Generar otro modelo
           </Button>
         )}
       </div>
 
-      <div className="rounded border border-blue-100 bg-blue-50 p-3">
-        <p className="text-xs text-blue-800">
-          <strong>Note:</strong> Generation typically takes 1-3 minutes and costs ~$0.30-2 per model. The product will be automatically updated when completed.
+      <div className="rounded-lg border border-[#0058a3]/20 bg-[#0058a3]/5 p-3 flex items-start gap-2">
+        <span className="text-sm mt-0.5">ℹ️</span>
+        <p className="text-xs text-[#0058a3] leading-relaxed">
+          <strong>Nota:</strong> La generación de modelos 3D con IA suele tardar de 1 a 3 minutos. El producto se actualizará automáticamente y podrás ver el visor interactivo una vez finalizado el procesamiento.
         </p>
       </div>
     </div>

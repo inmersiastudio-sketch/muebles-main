@@ -233,17 +233,32 @@ export class AI3DService {
         const usdzBuffer = await downloadGLB(tempUsdzUrl);
         const usdzKey = `product_${productId}_3d_model_${Date.now()}.usdz`;
         
+        // 4.1 Try AWS S3
         if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_BUCKET_NAME) {
-          const usdzUploadResult = await uploadUSDZToS3(usdzBuffer, usdzKey);
-          permanentUsdzUrl = usdzUploadResult.url;
-        } else if (process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_URL) {
-          const usdzUploadResult = await uploadGLB(usdzBuffer, {
-            public_id: usdzKey,
-            overwrite: true,
-            resource_type: 'raw' as const,
-          });
-          permanentUsdzUrl = usdzUploadResult.url;
-        } else if (process.env.NODE_ENV !== "production") {
+          try {
+            const usdzUploadResult = await uploadUSDZToS3(usdzBuffer, usdzKey);
+            permanentUsdzUrl = usdzUploadResult.url;
+          } catch (err) {
+            console.error("[AI3D] USDZ S3 upload failed:", err);
+          }
+        }
+        
+        // 4.2 Try Cloudinary if S3 not configured or failed
+        if (!permanentUsdzUrl && (process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_URL)) {
+          try {
+            const usdzUploadResult = await uploadGLB(usdzBuffer, {
+              public_id: usdzKey,
+              overwrite: true,
+              resource_type: 'raw' as const,
+            });
+            permanentUsdzUrl = usdzUploadResult.url;
+          } catch (err) {
+            console.error("[AI3D] USDZ Cloudinary upload failed:", err);
+          }
+        }
+        
+        // 4.3 Fallback to local storage in development
+        if (!permanentUsdzUrl && process.env.NODE_ENV !== "production") {
           const fs = await import("fs");
           const path = await import("path");
           
@@ -287,16 +302,28 @@ export class AI3DService {
   ): Promise<{ url: string; publicId: string }> {
     // Use AWS S3 if configured
     if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_BUCKET_NAME) {
-      return uploadGLBToS3(buffer, fileKey);
+      try {
+        return await uploadGLBToS3(buffer, fileKey);
+      } catch (s3Error) {
+        console.error("[AI3D] S3 upload failed, trying next provider:", s3Error);
+      }
     }
 
     // Fallback to Cloudinary if configured
     if (process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_URL) {
-      return uploadGLB(buffer, {
-        public_id: fileKey,
-        overwrite: true,
-        resource_type: 'raw' as const,
-      });
+      try {
+        return await uploadGLB(buffer, {
+          public_id: fileKey,
+          overwrite: true,
+          resource_type: 'raw' as const,
+        });
+      } catch (cloudinaryError) {
+        console.error("[AI3D] Cloudinary upload failed:", cloudinaryError);
+        // In development, catch the error and fallback to local storage rather than failing the job
+        if (process.env.NODE_ENV === "production") {
+          throw cloudinaryError;
+        }
+      }
     }
 
     // Otherwise, in development, fallback to local storage
