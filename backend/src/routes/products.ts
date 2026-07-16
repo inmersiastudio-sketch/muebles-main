@@ -298,9 +298,13 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
             },
           },
           media: {
-            where: { type: 'IMAGE', isPrimary: true },
-            take: 1,
-            select: { url: true },
+            where: {
+              OR: [
+                { type: 'IMAGE', isPrimary: true },
+                { type: 'MODEL_3D' }
+              ]
+            },
+            select: { type: true, url: true, mediaFormat: true },
           },
           inventory: {
             select: { availableStock: true },
@@ -311,19 +315,29 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     ]);
 
     // Transformar para frontend (versión ligera para listado)
-    const transformedProducts = products.map((p: any) => ({
-      id: p.id,
-      slug: p.slug,
-      name: p.name,
-      category: p.category,
-      room: p.room,
-      price: p.variants?.[0]?.salePrice || p.pricing?.salePrice || 0,
-      originalPrice: p.variants?.[0]?.listPrice || p.pricing?.listPrice,
-      currency: p.variants?.[0]?.currency || p.pricing?.currency || 'ARS',
-      imageUrl: p.variants?.[0]?.images?.[0]?.url || p.media?.[0]?.url,
-      store: p.store,
-      inStock: (p.inventory?.availableStock || 0) > 0,
-    }));
+    const transformedProducts = products.map((p: any) => {
+      const primaryImage = p.media?.find((m: any) => m.type === 'IMAGE')?.url;
+      const hasModel3d = p.media?.some((m: any) => m.type === 'MODEL_3D');
+      const glbUrl = p.media?.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'GLB')?.url;
+      const usdzUrl = p.media?.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'USDZ')?.url;
+
+      return {
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        category: p.category,
+        room: p.room,
+        price: p.variants?.[0]?.salePrice || p.pricing?.salePrice || 0,
+        originalPrice: p.variants?.[0]?.listPrice || p.pricing?.listPrice,
+        currency: p.variants?.[0]?.currency || p.pricing?.currency || 'ARS',
+        imageUrl: p.variants?.[0]?.images?.[0]?.url || primaryImage,
+        store: p.store,
+        inStock: (p.inventory?.availableStock || 0) > 0,
+        hasAr: hasModel3d,
+        glbUrl: glbUrl || null,
+        usdzUrl: usdzUrl || null,
+      };
+    });
 
     res.json({
       items: transformedProducts,
