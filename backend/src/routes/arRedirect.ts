@@ -57,11 +57,7 @@ router.get("/:productId", asyncHandler(async (req, res) => {
   const isIOS = /iphone|ipad|ipod/i.test(userAgent.toLowerCase());
   const isAndroid = /android/i.test(userAgent);
 
-  if (isIOS && cleanUsdzUrl) {
-    // iOS auto-launches Quick Look directly from the scanned QR code when redirected to a .usdz file
-    res.redirect(cleanUsdzUrl);
-    return;
-  }
+
 
   if (isAndroid && cleanGlbUrl) {
     // Android auto-launches Scene Viewer when redirected to its https viewer URL
