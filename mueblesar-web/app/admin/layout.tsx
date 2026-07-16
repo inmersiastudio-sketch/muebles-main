@@ -159,7 +159,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 </div>
                                 <div className="hidden text-right sm:block">
                                     <p className="max-w-36 truncate text-xs font-semibold leading-none text-slate-900">
-                                        {user.name || user.email.split("@")[0] || "Usuario"}
+                                        {user.name || user.email?.split("@")[0] || "Usuario"}
                                     </p>
                                     <p className="mt-1 text-[10px] leading-none text-slate-500">{roleLabel[user.role]}</p>
                                 </div>
