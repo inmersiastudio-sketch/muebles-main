@@ -8,7 +8,7 @@ import { ARPreview } from "../../components/products/ARPreview";
 import { ProductLogModal } from "../../components/admin/inventory/ProductLogModal";
 import { VariantManager, type ProductVariantForm } from "../../components/admin/VariantManager";
 
-import type { AdminProductListItem, ValidationResult, SessionUser as Store, ProductLogEntry } from "@/types";
+import type { AdminProductListItem, ValidationResult, Store, ProductLogEntry } from "@/types";
 import {
   FormState,
   emptyForm,
@@ -50,6 +50,47 @@ const tabs: { id: ViewTab; label: string; icon: React.ElementType }[] = [
   { id: "ar", label: "AR / 3D", icon: Box },
   { id: "stock", label: "Stock", icon: BarChart3 },
 ];
+
+const headerTranslations: Record<string, string> = {
+  id: "ID",
+  storeId: "ID Tienda",
+  name: "Nombre",
+  slug: "Enlace (Slug)",
+  price: "Precio",
+  category: "Categoría",
+  room: "Ambiente",
+  style: "Estilo",
+  arUrl: "Modelo AR (.usdz)",
+  glbUrl: "Modelo 3D (.glb)",
+  usdzUrl: "Modelo USDZ",
+  imageUrl: "Imagen (URL)",
+  inStock: "Disponible",
+  stockQty: "Stock (Cant.)",
+  widthCm: "Ancho (cm)",
+  depthCm: "Prof. (cm)",
+  heightCm: "Alto (cm)",
+  weightKg: "Peso (kg)",
+  featured: "Destacado",
+  isFeatured: "Destacado",
+};
+
+const formatPreviewValue = (header: string, val: string) => {
+  if (val === undefined || val === null || val.trim() === "") return "-";
+  
+  if (header === "inStock" || header === "featured" || header === "isFeatured") {
+    const isTrue = val.toLowerCase() === "true" || val === "1";
+    return isTrue ? "Sí" : "No";
+  }
+  
+  if (header === "price") {
+    const num = Number(val);
+    if (!isNaN(num)) {
+      return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(num);
+    }
+  }
+  
+  return val;
+};
 
 export default function InventoryPage() {
   const { user, apiBase } = useAdmin();
@@ -104,12 +145,48 @@ export default function InventoryPage() {
   const [previewRows, setPreviewRows] = useState<string[][]>([]);
   const [pendingImportRows, setPendingImportRows] = useState<string[][]>([]);
   const [importStoreId, setImportStoreId] = useState<string>("");
+  const [selectedImportIndices, setSelectedImportIndices] = useState<Set<number>>(new Set());
   const [originalProduct, setOriginalProduct] = useState<AdminProductListItem | null>(null);
 
   // ─── Derived data ───
   const categories = useMemo(() => {
     return Array.from(new Set(products.map((p) => p.category).filter((v): v is string => Boolean(v)))).sort();
   }, [products]);
+
+  const currentStore = useMemo(() => {
+    if (!user) return null;
+    const storeId = user.role === "SUPER_ADMIN" ? Number(importStoreId) : user.storeId;
+    if (!storeId) return null;
+    return stores.find(s => s.id === storeId);
+  }, [user, importStoreId, stores]);
+
+  const capacityInfo = useMemo(() => {
+    if (!currentStore) return null;
+    const max = currentStore.maxProducts ?? 10;
+    const current = currentStore._count?.products ?? 0;
+    const remaining = Math.max(0, max - current);
+    return { max, current, remaining };
+  }, [currentStore]);
+
+  const toggleSelectImportRow = (index: number) => {
+    setSelectedImportIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllImport = () => {
+    if (selectedImportIndices.size === pendingImportRows.length) {
+      setSelectedImportIndices(new Set());
+    } else {
+      setSelectedImportIndices(new Set(pendingImportRows.map((_, idx) => idx)));
+    }
+  };
 
   const filteredProducts = useMemo(() => {
     let arr = products;
@@ -146,6 +223,20 @@ export default function InventoryPage() {
 
   const pagedProducts = useMemo(() => sortedProducts.slice((page - 1) * pageSize, page * pageSize), [sortedProducts, page]);
   const totalPages = Math.max(1, Math.ceil(sortedProducts.length / pageSize));
+
+  const gridClassName = useMemo(() => {
+    const isSuper = user?.role === "SUPER_ADMIN";
+    if (activeTab === "general") {
+      return isSuper 
+        ? "grid-cols-[44px_1fr_110px_130px_130px_180px]" 
+        : "grid-cols-[44px_1fr_120px_150px_180px]";
+    }
+    if (activeTab === "ar") {
+      return "grid-cols-[44px_1fr_110px_140px_80px_180px]";
+    }
+    // stock
+    return "grid-cols-[44px_1fr_110px_140px_110px_180px]";
+  }, [activeTab, user]);
 
   useEffect(() => { setPage(1); }, [searchTerm, filterCategory, filterInStock, sortField, sortDir]);
 
@@ -513,6 +604,7 @@ export default function InventoryPage() {
       setPreviewHeaders(headers);
       setPreviewRows(rows.slice(0, 5));
       setPendingImportRows(rows);
+      setSelectedImportIndices(new Set(rows.map((_, idx) => idx)));
       setImportStoreId("");
       setShowImportPreview(true);
     };
@@ -522,8 +614,9 @@ export default function InventoryPage() {
   const submitImport = async () => {
     if (!user || !pendingImportRows.length) return;
 
-    // Validación previa para SUPER_ADMIN: debe haber seleccionado una tienda si alguna fila no tiene storeId
-    if (user.role === "SUPER_ADMIN" && !importStoreId && pendingImportRows.some(row => {
+    // Validación previa para SUPER_ADMIN: debe haber seleccionado una tienda si alguna fila seleccionada no tiene storeId
+    if (user.role === "SUPER_ADMIN" && !importStoreId && pendingImportRows.some((row, ri) => {
+      if (!selectedImportIndices.has(ri)) return false;
       const storeIdIdx = previewHeaders.indexOf("storeId");
       return storeIdIdx === -1 || !row[storeIdIdx];
     })) {
@@ -535,6 +628,7 @@ export default function InventoryPage() {
     setImportErrors([]);
     try {
       const items = pendingImportRows
+        .filter((_, ri) => selectedImportIndices.has(ri))
         .map((row) => { const o: any = {}; previewHeaders.forEach((h, i) => { if (row[i]) o[h] = row[i]; }); return o; })
         .filter((o) => Object.keys(o).length)
         .map((o) => ({
@@ -722,18 +816,18 @@ export default function InventoryPage() {
         ) : (
           <>
             {/* Table header */}
-            <div className="hidden sm:grid grid-cols-[44px_1fr_100px_100px_80px_80px_80px_100px] gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider items-center">
+            <div className={`hidden sm:grid ${gridClassName} gap-2 px-4 py-3 bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider items-center rounded-t-xl`}>
               <div className="text-center">
-                <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300 accent-[#0058a3]"
+                <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300 text-[#0058a3] focus:ring-[#0058a3] cursor-pointer"
                   checked={pagedProducts.length > 0 && pagedProducts.every((p) => selectedIds.has(p.id))}
                   onChange={(e) => setSelectedIds(e.target.checked ? new Set(pagedProducts.map((p) => p.id)) : new Set())} />
               </div>
-              <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-slate-700 transition-colors text-left">
+              <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-slate-700 transition-colors text-left focus:outline-none">
                 Producto {sortField === "name" && (sortDir === "asc" ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
               </button>
               {activeTab === "general" && (
                 <>
-                  <button onClick={() => handleSort("price")} className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+                  <button onClick={() => handleSort("price")} className="flex items-center gap-1 hover:text-slate-700 transition-colors focus:outline-none">
                     Precio {sortField === "price" && (sortDir === "asc" ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
                   </button>
                   <span>Categoría</span>
@@ -763,10 +857,13 @@ export default function InventoryPage() {
               const hasDim = p.widthCm || p.depthCm || p.heightCm;
 
               return (
-                <div key={p.id} className={`grid grid-cols-1 sm:grid-cols-[44px_1fr_100px_100px_80px_80px_80px_100px] gap-2 px-4 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors items-center ${selectedIds.has(p.id) ? "bg-blue-50/50" : ""}`}>
+                <div 
+                  key={p.id} 
+                  className={`grid grid-cols-1 sm:grid ${gridClassName} gap-2 px-4 py-3 border-b border-slate-100 last:border-0 items-center transition-all duration-150 ${selectedIds.has(p.id) ? "bg-[#0058a3]/5 hover:bg-[#0058a3]/8" : "bg-white hover:bg-slate-50/70"}`}
+                >
                   {/* Checkbox */}
                   <div className="text-center hidden sm:block">
-                    <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300 accent-[#0058a3]"
+                    <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300 text-[#0058a3] focus:ring-[#0058a3] cursor-pointer"
                       checked={selectedIds.has(p.id)}
                       onChange={(e) => { const n = new Set(selectedIds); e.target.checked ? n.add(p.id) : n.delete(p.id); setSelectedIds(n); }} />
                   </div>
@@ -774,10 +871,11 @@ export default function InventoryPage() {
                   {/* Product name */}
                   <div className="flex items-center gap-3 min-w-0">
                     {p.imageUrl ? (
-                      <img src={p.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover border border-slate-200 cursor-pointer shrink-0 hover:border-[#0058a3] transition-colors"
-                        onClick={() => setPreviewImageUrl(p.imageUrl || null)} />
+                      <div className="overflow-hidden rounded-lg h-9 w-9 border border-slate-200 shrink-0 cursor-pointer" onClick={() => setPreviewImageUrl(p.imageUrl || null)}>
+                        <img src={p.imageUrl} alt="" className="h-full w-full object-cover hover:scale-110 transition-transform duration-200" />
+                      </div>
                     ) : (
-                      <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><ImageIcon size={14} className="text-slate-400" /></div>
+                      <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200/50"><ImageIcon size={14} className="text-slate-400" /></div>
                     )}
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
@@ -836,15 +934,20 @@ export default function InventoryPage() {
                   {activeTab === "stock" && (
                     <>
                       <div className="text-center hidden sm:block">
-                        {p.inStock ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                            <CheckCircle2 size={12} className="text-emerald-500" />
-                            En Stock
-                          </span>
-                        ) : (
+                        {(p.stockQty ?? 0) === 0 ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-bold text-red-600">
                             <XCircle size={12} className="text-red-500" />
                             Agotado
+                          </span>
+                        ) : (p.stockQty ?? 0) < 5 ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <AlertTriangle size={12} className="text-amber-500" />
+                            Stock Bajo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                            <CheckCircle2 size={12} className="text-emerald-500" />
+                            En Stock
                           </span>
                         )}
                       </div>
@@ -852,15 +955,14 @@ export default function InventoryPage() {
                         <div className="flex items-center justify-center gap-1.5">
                           <button onClick={() => updateProductField(p.id, { stockQty: Math.max(0, (p.stockQty ?? 0) - 1) })}
                             className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold transition-colors">−</button>
-                          <span className={`text-sm font-bold w-8 text-center ${(p.stockQty ?? 0) < 5 ? "text-red-600" : "text-slate-900"}`}>{p.stockQty ?? 0}</span>
+                          <span className={`text-sm font-bold w-8 text-center ${(p.stockQty ?? 0) === 0 ? "text-red-600" : (p.stockQty ?? 0) < 5 ? "text-amber-500" : "text-slate-900"}`}>{p.stockQty ?? 0}</span>
                           <button onClick={() => updateProductField(p.id, { stockQty: (p.stockQty ?? 0) + 1 })}
                             className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold transition-colors">+</button>
-                          {(p.stockQty ?? 0) < 5 && <span className="text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">Bajo</span>}
                         </div>
                       </div>
                       <div className="text-center hidden sm:block">
-                        <span className={`text-xs font-semibold ${(p.stockQty ?? 0) > 0 ? "text-emerald-600" : "text-red-500"}`}>
-                          {(p.stockQty ?? 0) > 0 ? "Disponible" : "Sin inventario"}
+                        <span className={`text-xs font-semibold ${(p.stockQty ?? 0) === 0 ? "text-red-500" : (p.stockQty ?? 0) < 5 ? "text-amber-600" : "text-emerald-600"}`}>
+                          {(p.stockQty ?? 0) === 0 ? "Sin inventario" : "Disponible"}
                         </span>
                       </div>
                     </>
@@ -934,16 +1036,17 @@ export default function InventoryPage() {
       )}
 
       {/* ── CSV Import Preview Modal ── */}
+      {/* ── CSV Import Preview Modal ── */}
       {showImportPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowImportPreview(false)}>
-          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200">
+          <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex-shrink-0">
               <h2 className="text-lg font-bold text-slate-900">Vista previa de importación</h2>
-              <p className="text-xs text-slate-500">{pendingImportRows.length} filas encontradas</p>
+              <p className="text-xs text-slate-500">{pendingImportRows.length} filas encontradas | <strong>{selectedImportIndices.size}</strong> seleccionadas</p>
             </div>
             {/* Super Admin Store Selector inside Import Modal */}
             {user?.role === "SUPER_ADMIN" && (
-              <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4">
+              <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 flex-shrink-0">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Asignar a Tienda (Superadmin):</label>
                 <select
                   value={importStoreId}
@@ -959,10 +1062,75 @@ export default function InventoryPage() {
                 </select>
               </div>
             )}
-            <div className="px-6 py-4 max-h-[50vh] overflow-auto">
+            {/* Store capacity info banner */}
+            {capacityInfo && (
+              <div className="px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 flex-shrink-0">
+                <span>
+                  Tienda: <strong className="text-slate-900">{currentStore?.name}</strong> | Catálogo actual: <strong>{capacityInfo.current}</strong> de <strong>{capacityInfo.max}</strong> productos
+                </span>
+                <span>
+                  Capacidad restante: <strong className={capacityInfo.remaining === 0 ? "text-red-600 font-bold" : "text-slate-900"}>{capacityInfo.remaining}</strong> productos
+                </span>
+              </div>
+            )}
+            <div className="px-6 py-4 overflow-auto flex-grow">
+              {/* Capacity Limit Warning */}
+              {capacityInfo && selectedImportIndices.size > capacityInfo.remaining && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-800 flex flex-col gap-1.5">
+                  <div className="font-bold flex items-center gap-1.5 text-sm">
+                    <span>⚠️ Límite de catálogo excedido</span>
+                  </div>
+                  <p>
+                    Has seleccionado <strong>{selectedImportIndices.size}</strong> productos para importar, pero tu plan actual solo tiene capacidad para <strong>{capacityInfo.remaining}</strong> producto(s) adicionales.
+                  </p>
+                  <p className="text-[11px] text-amber-700">
+                    Sugerencia: Desmarca algunos productos en la lista inferior hasta que no superes la capacidad restante o ve a la pestaña de <strong>Plan y créditos</strong> para mejorar tu plan de suscripción.
+                  </p>
+                </div>
+              )}
+
               <table className="min-w-full text-xs">
-                <thead><tr>{previewHeaders.map((h) => <th key={h} className="px-2 py-1 bg-slate-50 font-bold text-slate-600 text-left">{h}</th>)}</tr></thead>
-                <tbody>{previewRows.map((r, ri) => <tr key={ri}>{r.map((v, ci) => <td key={ci} className="px-2 py-1 border-t border-slate-100">{v}</td>)}</tr>)}</tbody>
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="px-2 py-1.5 bg-slate-50 font-bold text-slate-600 text-left w-10">
+                      <input
+                        type="checkbox"
+                        checked={pendingImportRows.length > 0 && selectedImportIndices.size === pendingImportRows.length}
+                        onChange={toggleSelectAllImport}
+                        className="rounded text-[#0058a3] focus:ring-[#0058a3] cursor-pointer"
+                      />
+                    </th>
+                    {previewHeaders.map((h) => (
+                      <th key={h} className="px-2 py-1.5 bg-slate-50 font-bold text-slate-600 text-left">{headerTranslations[h] || h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingImportRows.map((r, ri) => (
+                    <tr 
+                      key={ri} 
+                      className={`hover:bg-slate-50/50 cursor-pointer ${selectedImportIndices.has(ri) ? "bg-white" : "bg-slate-50/30 opacity-60"}`}
+                      onClick={() => toggleSelectImportRow(ri)}
+                    >
+                      <td className="px-2 py-1.5 border-t border-slate-100 w-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedImportIndices.has(ri)}
+                          onChange={() => toggleSelectImportRow(ri)}
+                          className="rounded text-[#0058a3] focus:ring-[#0058a3] cursor-pointer"
+                        />
+                      </td>
+                      {r.map((v, ci) => {
+                        const formatted = formatPreviewValue(previewHeaders[ci], v);
+                        return (
+                          <td key={ci} className="px-2 py-1.5 border-t border-slate-100 max-w-[150px] truncate" title={formatted}>
+                            {formatted}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
               </table>
               {importErrors.length > 0 && (
                 <div className="mt-3 bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700">
@@ -970,9 +1138,13 @@ export default function InventoryPage() {
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2 flex-shrink-0 bg-slate-50/50">
               <button onClick={() => setShowImportPreview(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">Cancelar</button>
-              <button onClick={submitImport} disabled={saving} className="px-4 py-2 rounded-xl bg-[#0058a3] text-white text-sm font-bold hover:bg-[#004f93] transition-colors disabled:opacity-50">
+              <button 
+                onClick={submitImport} 
+                disabled={saving || selectedImportIndices.size === 0 || (capacityInfo !== null && selectedImportIndices.size > capacityInfo.remaining)} 
+                className="px-4 py-2 rounded-xl bg-[#0058a3] text-white text-sm font-bold hover:bg-[#004f93] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {saving ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}Confirmar importación
               </button>
             </div>

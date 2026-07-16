@@ -114,6 +114,7 @@ export function createServer() {
   app.use("/api/catalog", catalogRouter); // Rutas públicas de catálogo
   app.use("/api/inquiries", inquiriesRouter); // Sistema de consultas
   app.use("/api/admin/inquiries", adminInquiriesRouter); // Admin inquiry analytics
+  app.use("/public", express.static("public"));
   app.use(openapiRouter);
 
   // ── 404 Handler ─────────────────────────────────────────────

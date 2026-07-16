@@ -227,13 +227,38 @@ export class AI3DService {
     const permanentGlbUrl = uploadResult.url;
     let permanentUsdzUrl = '';
 
-    // 4. Process USDZ if available and using S3
-    if (tempUsdzUrl && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_BUCKET_NAME) {
+    // 4. Process USDZ if available
+    if (tempUsdzUrl) {
       try {
         const usdzBuffer = await downloadGLB(tempUsdzUrl);
         const usdzKey = `product_${productId}_3d_model_${Date.now()}.usdz`;
-        const usdzUploadResult = await uploadUSDZToS3(usdzBuffer, usdzKey);
-        permanentUsdzUrl = usdzUploadResult.url;
+        
+        if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_BUCKET_NAME) {
+          const usdzUploadResult = await uploadUSDZToS3(usdzBuffer, usdzKey);
+          permanentUsdzUrl = usdzUploadResult.url;
+        } else if (process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_URL) {
+          const usdzUploadResult = await uploadGLB(usdzBuffer, {
+            public_id: usdzKey,
+            overwrite: true,
+            resource_type: 'raw' as const,
+          });
+          permanentUsdzUrl = usdzUploadResult.url;
+        } else if (process.env.NODE_ENV !== "production") {
+          const fs = await import("fs");
+          const path = await import("path");
+          
+          const publicDir = path.join(process.cwd(), "public", "models");
+          if (!fs.existsSync(publicDir)) {
+            fs.mkdirSync(publicDir, { recursive: true });
+          }
+          
+          const filePath = path.join(publicDir, usdzKey);
+          fs.writeFileSync(filePath, usdzBuffer);
+          
+          const baseUrl = process.env.API_BASE_URL || "http://localhost:3001";
+          permanentUsdzUrl = `${baseUrl}/public/models/${usdzKey}`;
+          console.log(`[AI3D] USDZ saved locally for development: ${permanentUsdzUrl}`);
+        }
       } catch (usdzErr) {
         console.error(`Failed to process USDZ for product ${productId}:`, usdzErr);
       }
@@ -265,12 +290,39 @@ export class AI3DService {
       return uploadGLBToS3(buffer, fileKey);
     }
 
-    // Fallback to Cloudinary
-    return uploadGLB(buffer, {
-      public_id: fileKey,
-      overwrite: true,
-      resource_type: 'raw' as const,
-    });
+    // Fallback to Cloudinary if configured
+    if (process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_URL) {
+      return uploadGLB(buffer, {
+        public_id: fileKey,
+        overwrite: true,
+        resource_type: 'raw' as const,
+      });
+    }
+
+    // Otherwise, in development, fallback to local storage
+    if (process.env.NODE_ENV !== "production") {
+      const fs = await import("fs");
+      const path = await import("path");
+      
+      const publicDir = path.join(process.cwd(), "public", "models");
+      if (!fs.existsSync(publicDir)) {
+        fs.mkdirSync(publicDir, { recursive: true });
+      }
+      
+      const filePath = path.join(publicDir, fileKey);
+      fs.writeFileSync(filePath, buffer);
+      
+      const baseUrl = process.env.API_BASE_URL || "http://localhost:3001";
+      const fileUrl = `${baseUrl}/public/models/${fileKey}`;
+      console.log(`[AI3D] GLB saved locally for development: ${fileUrl}`);
+      
+      return {
+        url: fileUrl,
+        publicId: `local/${fileKey}`,
+      };
+    }
+
+    throw new Error("No storage provider configured (AWS S3 or Cloudinary required for production)");
   }
 
   /**

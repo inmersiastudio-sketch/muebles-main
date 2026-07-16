@@ -150,6 +150,8 @@ const CreateProductSchema = z.object({
 const UpdateProductSchema = CreateProductSchema.partial().extend({
     // En update, el SKU puede no cambiar
     sku: z.string().min(1).optional(),
+    featured: z.boolean().optional(),
+    stockQty: z.coerce.number().int().nonnegative().optional(),
 });
 
 // ============================================
@@ -745,6 +747,7 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
             if (data.tags) updateData.tags = data.tags;
             if (data.isActive !== undefined) updateData.isActive = data.isActive;
             if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured;
+            if (data.featured !== undefined) updateData.isFeatured = data.featured;
 
             // JSON fields
             if (data.dimensions) {
@@ -762,6 +765,35 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
                 where: { id: productId },
                 data: updateData,
             });
+
+            // 1.5. Actualizar stockQty en variante por defecto si se envió
+            if (data.stockQty !== undefined) {
+                const defaultVariant = existingProduct.variants.find(v => v.isDefault) || existingProduct.variants[0];
+                if (defaultVariant) {
+                    await tx.productVariant.update({
+                        where: { id: defaultVariant.id },
+                        data: { stock: data.stockQty },
+                    });
+
+                    // Recalcular totalStock con el nuevo stock de la variante por defecto
+                    const otherVariants = existingProduct.variants.filter(v => v.id !== defaultVariant.id);
+                    const totalStock = otherVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0) + data.stockQty;
+
+                    await tx.productInventory.upsert({
+                        where: { productId },
+                        update: {
+                            totalStock,
+                            availableStock: totalStock,
+                        },
+                        create: {
+                            productId,
+                            totalStock,
+                            availableStock: totalStock,
+                            trackStock: true,
+                        },
+                    });
+                }
+            }
 
             // 2. Manejar variantes (si se enviaron)
             if (data.variants && data.variants.length > 0) {
