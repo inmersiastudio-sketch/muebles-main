@@ -876,16 +876,21 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 
             // 3. Actualizar precios generales
             if (data.pricing) {
+                const updateData: any = {};
+                if (data.pricing.shippingCost !== undefined) {
+                    updateData.shippingCost = data.pricing.shippingCost;
+                }
+                if (req.body.pricing && 'financingOptions' in req.body.pricing) {
+                    updateData.financingOptions = data.pricing.financingOptions;
+                }
+
                 await tx.productPricing.upsert({
                     where: { productId },
-                    update: {
-                        shippingCost: data.pricing.shippingCost,
-                        financingOptions: data.pricing.financingOptions,
-                    },
+                    update: updateData,
                     create: {
                         currency: 'ARS',
-                        shippingCost: data.pricing.shippingCost,
-                        financingOptions: data.pricing.financingOptions,
+                        shippingCost: data.pricing.shippingCost ?? null,
+                        financingOptions: data.pricing.financingOptions || [],
                         productId,
                     },
                 });

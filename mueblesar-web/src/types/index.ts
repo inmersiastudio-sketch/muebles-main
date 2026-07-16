@@ -299,6 +299,8 @@ export interface CatalogProduct {
   color?: string | null;
   hasDiscount?: boolean;
   discountPercentage?: number;
+  shippingCost?: number | null;
+  isFreeShipping?: boolean;
 }
 
 export interface CatalogPagination {

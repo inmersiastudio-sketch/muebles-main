@@ -2,7 +2,7 @@ export const revalidate = 60;
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Star, Store, ChevronRight, Box } from "lucide-react";
+import { Star, Store, ChevronRight, Box, Truck } from "lucide-react";
 import { Container } from "@/app/components/layout/Container";
 import { ColorImageCarousel } from "@/app/components/media/ColorImageCarousel";
 import { FavoriteButton } from "@/app/components/favorites/FavoriteButton";
@@ -207,6 +207,21 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
 
               </div>
 
+              {/* Shipping Banner */}
+              <div className="mt-4 p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-start gap-3">
+                <Truck className="w-5 h-5 text-slate-500 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    {typedProduct.pricing.isFreeShipping ? "Envío gratis" : "Envío a coordinar"}
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {typedProduct.pricing.isFreeShipping
+                      ? "Esta mueblería ofrece envío gratuito para este producto."
+                      : "El costo, la modalidad y la fecha de entrega se acuerdan directamente con la mueblería al realizar la consulta."}
+                  </p>
+                </div>
+              </div>
+
               {/* Short Description */}
               {typedProduct.description && (
                 <p className="mt-4 text-[var(--gray-600)] text-sm leading-relaxed">
@@ -278,6 +293,9 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                     productPrice={defaultVariant?.pricing.salePrice || 0}
                     selectedVariant={defaultVariant}
                     storeWhatsapp={store.whatsapp}
+                    imageUrl={typedProduct.media.images?.[0]?.url || null}
+                    glbUrl={typedProduct.media.model3d?.glbUrl || null}
+                    usdzUrl={typedProduct.media.model3d?.usdzUrl || null}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-4 text-base font-bold shadow-md transition-transform active:scale-[0.98] cursor-pointer"
                   />
                 )}

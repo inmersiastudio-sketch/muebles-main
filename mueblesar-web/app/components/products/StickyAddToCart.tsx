@@ -144,6 +144,9 @@ export function StickyAddToCart({ product, arData, disabled = false }: StickyAdd
               selectedVariant={null}
               storeWhatsapp={product.storeWhatsapp}
               disabled={disabled}
+              imageUrl={product.imageUrl}
+              glbUrl={arData?.glbUrl}
+              usdzUrl={arData?.usdzUrl}
               className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             />
           ) : (

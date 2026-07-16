@@ -68,6 +68,9 @@ export function PDPCTA({
           selectedVariant={selectedVariant ?? null}
           storeWhatsapp={storeWhatsapp}
           disabled={disabled}
+          imageUrl={productImage}
+          glbUrl={glbLink}
+          usdzUrl={usdzLink}
           className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-emerald-600 font-extrabold text-white shadow-md transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
         />
       ) : (

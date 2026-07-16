@@ -424,14 +424,26 @@ export default function DashboardPage() {
             ) : (
               <ul className="divide-y divide-slate-100">
                 {lowStock.slice(0, 5).map((product) => (
-                  <li key={product.productId} className="flex items-center justify-between gap-3 px-5 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{product.name}</p>
-                      {product.storeName && <p className="truncate text-xs text-slate-500">{product.storeName}</p>}
-                    </div>
-                    <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
-                      {product.stockQty} uds.
-                    </span>
+                  <li key={product.productId}>
+                    <Link
+                      href={`/admin/inventory?edit=${product.productId}`}
+                      className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50 transition-colors group"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-[#0058a3] transition-colors">
+                          {product.name}
+                        </p>
+                        {product.storeName && <p className="truncate text-xs text-slate-500">{product.storeName}</p>}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
+                          {product.stockQty} uds.
+                        </span>
+                        <span className="text-xs font-bold text-[#0058a3] opacity-0 group-hover:opacity-100 transition-opacity">
+                          Editar →
+                        </span>
+                      </div>
+                    </Link>
                   </li>
                 ))}
               </ul>

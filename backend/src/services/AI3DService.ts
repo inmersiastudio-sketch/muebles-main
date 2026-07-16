@@ -1,4 +1,4 @@
-import { UserRole, AI3DJobStatus } from '@prisma/client';
+import { UserRole, AI3DJobStatus, MediaFormat } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { createImageTo3DTask, getTaskStatus, downloadGLB } from '../lib/meshy.js';
 import { TripoClient } from '../lib/tripo.js';
@@ -367,8 +367,8 @@ export class AI3DService {
     });
     await prisma.productMedia.createMany({
       data: [
-        { productId, type: 'MODEL_3D' as const, url: glbUrl, isPrimary: true },
-        ...(usdzUrl ? [{ productId, type: 'MODEL_3D' as const, url: usdzUrl, isPrimary: false }] : [])
+        { productId, type: 'MODEL_3D' as const, url: glbUrl, isPrimary: true, mediaFormat: 'GLB' as MediaFormat },
+        ...(usdzUrl ? [{ productId, type: 'MODEL_3D' as const, url: usdzUrl, isPrimary: false, mediaFormat: 'USDZ' as MediaFormat }] : [])
       ]
     });
   }

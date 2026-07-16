@@ -63,18 +63,20 @@ function transformProductForFrontend(product: any) {
     } : null,
 
     // Precios (del defaultVariant o pricing general)
-    pricing: defaultVariant ? {
-      currency: defaultVariant.currency,
-      listPrice: defaultVariant.listPrice,
-      salePrice: defaultVariant.salePrice,
-      hasDiscount: defaultVariant.listPrice > defaultVariant.salePrice,
-      discountPercentage: defaultVariant.listPrice > defaultVariant.salePrice
-        ? Math.round((1 - defaultVariant.salePrice / defaultVariant.listPrice) * 100)
-        : 0,
-      shippingCost: product.pricing?.shippingCost,
-      isFreeShipping: product.pricing?.shippingCost === null || product.pricing?.shippingCost === 0,
+    pricing: {
+      currency: defaultVariant?.currency || product.pricing?.currency || 'ARS',
+      listPrice: defaultVariant?.listPrice || product.pricing?.listPrice || 0,
+      salePrice: defaultVariant?.salePrice || product.pricing?.salePrice || 0,
+      hasDiscount: defaultVariant
+        ? defaultVariant.listPrice > defaultVariant.salePrice
+        : (product.pricing?.listPrice || 0) > (product.pricing?.salePrice || 0),
+      discountPercentage: defaultVariant
+        ? (defaultVariant.listPrice > defaultVariant.salePrice ? Math.round((1 - defaultVariant.salePrice / defaultVariant.listPrice) * 100) : 0)
+        : ((product.pricing?.listPrice || 0) > (product.pricing?.salePrice || 0) ? Math.round((1 - (product.pricing?.salePrice || 0) / (product.pricing?.listPrice || 1)) * 100) : 0),
+      shippingCost: product.pricing?.shippingCost ?? null,
+      isFreeShipping: product.pricing?.shippingCost === 0,
       financingOptions: product.pricing?.financingOptions || [],
-    } : product.pricing,
+    },
 
     // Inventario
     inventory: product.inventory ? {
@@ -154,8 +156,8 @@ function transformProductForFrontend(product: any) {
         })) || [],
       videoUrl: product.media?.find((m: any) => m.type === 'VIDEO')?.url || null,
       model3d: product.media?.find((m: any) => m.type === 'MODEL_3D') ? {
-        glbUrl: product.media.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'GLB')?.url,
-        usdzUrl: product.media.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'USDZ')?.url,
+        glbUrl: product.media.find((m: any) => m.type === 'MODEL_3D' && (m.mediaFormat === 'GLB' || m.url.toLowerCase().endsWith('.glb') || m.url.includes('.glb?')))?.url || null,
+        usdzUrl: product.media.find((m: any) => m.type === 'MODEL_3D' && (m.mediaFormat === 'USDZ' || m.url.toLowerCase().endsWith('.usdz') || m.url.includes('.usdz?')))?.url || null,
       } : null,
       documents: product.media
         ?.filter((m: any) => m.type === 'DOCUMENT')

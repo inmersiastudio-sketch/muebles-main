@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAdmin } from "../layout";
 import { FileUpload } from "../../components/ui/FileUpload";
 import { AI3DGenerator } from "../../components/admin/AI3DGenerator";
@@ -93,9 +94,15 @@ const formatPreviewValue = (header: string, val: string) => {
   return val;
 };
 
-export default function InventoryPage() {
+function InventoryPageContent() {
   const { user, apiBase } = useAdmin();
   const { success: showSuccess, error: showError } = useToast();
+  
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editIdStr = searchParams.get("edit");
+  const processedEditIdRef = useRef<number | null>(null);
+
 
   // Data
   const [products, setProducts] = useState<AdminProductListItem[]>([]);
@@ -363,6 +370,7 @@ export default function InventoryPage() {
       assemblyDifficulty: ass.difficulty || "easy",
       piecesCount: pkg.piecesCount ? String(pkg.piecesCount) : "1",
       specialHandling: Boolean(pkg.specialHandling),
+      freeShipping: (p as any).pricing ? ((p as any).pricing.shippingCost === 0 || (p as any).pricing.isFreeShipping) : false,
     });
     // Cargar variantes del producto
     if (p.variants && p.variants.length > 0) {
@@ -395,6 +403,30 @@ export default function InventoryPage() {
     setFormValidation(null);
     setDrawerOpen(true);
   };
+
+  useEffect(() => {
+    if (!editIdStr || products.length === 0) return;
+
+    const editId = parseInt(editIdStr, 10);
+
+    if (isNaN(editId) || editId <= 0) {
+      router.replace("/admin/inventory", { scroll: false });
+      return;
+    }
+
+    if (processedEditIdRef.current === editId) return;
+    processedEditIdRef.current = editId;
+
+    const productToEdit = products.find((p) => p.id === editId);
+
+    if (productToEdit) {
+      openEdit(productToEdit);
+      router.replace("/admin/inventory", { scroll: false });
+    } else {
+      showError("El producto especificado no existe o no tenés permisos para editarlo.");
+      router.replace("/admin/inventory", { scroll: false });
+    }
+  }, [editIdStr, products, router, showError]);
 
   const closeDrawer = () => { setDrawerOpen(false); setForm(emptyForm); setVariants([]); setFormErrors({}); setFormValidation(null); setOriginalProduct(null); };
 
@@ -485,6 +517,9 @@ export default function InventoryPage() {
         imageUrl: form.imageUrl || undefined,
         dimensions: dimensions || undefined,
         logistics: logistics,
+        pricing: {
+          shippingCost: form.freeShipping ? 0 : null,
+        },
         images: form.images.filter((i) => i.url).map((i) => ({ url: i.url, type: i.type || undefined })),
         inStock: form.inStock, stockQty: form.stockQty ? Number(form.stockQty) : undefined,
         // Nuevos campos de variantes
@@ -1291,6 +1326,14 @@ export default function InventoryPage() {
                     </select>
                   </div>
                 </div>
+                <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                  <input type="checkbox" id="freeShipping" checked={form.freeShipping}
+                    onChange={(e) => setForm((f) => ({ ...f, freeShipping: e.target.checked }))}
+                    className="h-4 w-4 rounded accent-[#0058a3] cursor-pointer" />
+                  <label htmlFor="freeShipping" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                    Ofrecer Envío Gratis
+                  </label>
+                </div>
               </div>
 
               {/* Assembly info */}
@@ -1462,5 +1505,20 @@ export default function InventoryPage() {
         <option value="Pino" />
       </datalist>
     </div>
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-96 items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-10 w-10 animate-spin text-[#0058a3]" />
+          <span className="text-sm text-slate-500 font-semibold">Cargando inventario...</span>
+        </div>
+      </div>
+    }>
+      <InventoryPageContent />
+    </Suspense>
   );
 }

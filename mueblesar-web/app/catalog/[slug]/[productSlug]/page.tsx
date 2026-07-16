@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Store, ArrowLeft, MessageCircle } from "lucide-react";
+import { Store, ArrowLeft, MessageCircle, Truck } from "lucide-react";
 import { notFound } from "next/navigation";
 import { fetchCatalogProduct } from "@/app/lib/api";
 import { Container } from "@/app/components/layout/Container";
@@ -9,6 +9,7 @@ import { ARPreview } from "@/app/components/products/ARPreview";
 import { ProductInfoTabs } from "@/app/components/products/ProductInfoTabs";
 import { StickyAddToCart } from "@/app/components/products/StickyAddToCart";
 import { Button } from "@/app/components/ui/Button";
+import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
 
 interface Props {
     params: Promise<{ slug: string; productSlug: string }>;
@@ -138,6 +139,21 @@ export default async function CatalogProductPage({ params }: Props) {
                                 </div>
                             </div>
 
+                            {/* Shipping Banner */}
+                            <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-start gap-3">
+                              <Truck className="w-5 h-5 text-slate-500 mt-0.5" />
+                              <div>
+                                <h4 className="text-sm font-bold text-slate-900">
+                                  {productData.isFreeShipping ? "Envío gratis" : "Envío a coordinar"}
+                                </h4>
+                                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                  {productData.isFreeShipping
+                                    ? "Esta mueblería ofrece envío gratuito para este producto."
+                                    : "El costo, la modalidad y la fecha de entrega se acuerdan directamente con la mueblería al realizar la consulta."}
+                                </p>
+                              </div>
+                            </div>
+
                             {/* Product Details Tabs */}
                             <ProductInfoTabs
                                 description={productData.description ?? undefined}
@@ -150,16 +166,19 @@ export default async function CatalogProductPage({ params }: Props) {
                             {/* CTA Buttons */}
                             <div id="product-main-actions" className="space-y-3 pt-4 border-t border-slate-200">
                                 {/* WhatsApp Contact */}
-                                {waLink ? (
-                                    <a 
-                                        href={waLink} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                                    >
-                                        <MessageCircle size={18} />
-                                        Consultar por WhatsApp
-                                    </a>
+                                {store.id ? (
+                                    <WhatsappInquiryButton
+                                        productId={productData.id}
+                                        storeId={store.id}
+                                        productName={productData.name}
+                                        productPrice={productData.price}
+                                        selectedVariant={null}
+                                        storeWhatsapp={store.whatsapp}
+                                        imageUrl={productData.imageUrl}
+                                        glbUrl={productData.glbUrl}
+                                        usdzUrl={productData.usdzUrl}
+                                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 cursor-pointer"
+                                    />
                                 ) : (
                                     <Button variant="secondary" size="lg" disabled className="w-full">
                                         WhatsApp no disponible
@@ -243,6 +262,7 @@ export default async function CatalogProductPage({ params }: Props) {
                     storeName: store.name,
                     storeSlug: slug,
                     storeWhatsapp: store.whatsapp,
+                    storeId: store.id,
                 }}
                 arData={arModelUrl ? {
                     arUrl: productData.arUrl ?? undefined,

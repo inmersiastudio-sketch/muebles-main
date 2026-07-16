@@ -32,6 +32,8 @@ export interface CatalogProduct {
   glbUrl: string | null;
   usdzUrl: string | null;
   images: { url: string; altText: string | null; position: number }[];
+  shippingCost: number | null;
+  isFreeShipping: boolean;
 }
 
 export interface CatalogStore {
@@ -375,13 +377,15 @@ export class CatalogService {
       stockQty: product.inventory?.availableStock || 0,
       featured: product.isFeatured || false,
       imageUrl: mainImage,
-      glbUrl: product.media?.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'GLB')?.url || null,
-      usdzUrl: product.media?.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'USDZ')?.url || null,
+      glbUrl: product.media?.find((m: any) => m.type === 'MODEL_3D' && (m.mediaFormat === 'GLB' || m.url.toLowerCase().includes('.glb')))?.url || null,
+      usdzUrl: product.media?.find((m: any) => m.type === 'MODEL_3D' && (m.mediaFormat === 'USDZ' || m.url.toLowerCase().includes('.usdz')))?.url || null,
       images: product.media?.filter((m: any) => m.type === 'IMAGE').map((m: any, idx: number) => ({
         url: m.url,
         altText: m.alt,
         position: m.sortOrder || idx
       })) || [],
+      shippingCost: product.pricing?.shippingCost ?? null,
+      isFreeShipping: product.pricing?.shippingCost === 0,
     };
   }
 }

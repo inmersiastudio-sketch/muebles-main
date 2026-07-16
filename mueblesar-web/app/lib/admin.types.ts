@@ -90,6 +90,7 @@ export type FormState = {
   // Empaque
   piecesCount: string;
   specialHandling: boolean;
+  freeShipping: boolean;
 };
 
 export const emptyForm: FormState = {
@@ -97,6 +98,7 @@ export const emptyForm: FormState = {
   storeId: undefined,
   name: "",
   slug: "",
+  freeShipping: false,
   description: "",
   category: "",
   room: "",

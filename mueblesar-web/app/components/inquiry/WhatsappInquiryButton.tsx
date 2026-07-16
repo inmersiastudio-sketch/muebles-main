@@ -15,6 +15,9 @@ interface WhatsappInquiryButtonProps {
   className?: string;
   children?: React.ReactNode;
   disabled?: boolean;
+  imageUrl?: string | null;
+  glbUrl?: string | null;
+  usdzUrl?: string | null;
 }
 
 export function WhatsappInquiryButton({
@@ -27,6 +30,9 @@ export function WhatsappInquiryButton({
   className,
   children,
   disabled = false,
+  imageUrl,
+  glbUrl,
+  usdzUrl,
 }: WhatsappInquiryButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const hasWhatsApp = Boolean(storeWhatsapp?.replace(/\D/g, ""));
@@ -67,6 +73,9 @@ export function WhatsappInquiryButton({
         productPrice={selectedVariant?.pricing.salePrice || productPrice}
         variant={selectedVariant || undefined}
         storeWhatsApp={storeWhatsapp || undefined}
+        imageUrl={imageUrl}
+        glbUrl={glbUrl}
+        usdzUrl={usdzUrl}
       />
     </>
   );

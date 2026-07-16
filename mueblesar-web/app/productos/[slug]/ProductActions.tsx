@@ -80,6 +80,9 @@ export function ProductActions({
           selectedVariant={null}
           storeWhatsapp={storeWhatsapp}
           disabled={disabled}
+          imageUrl={productImage}
+          glbUrl={glbLink}
+          usdzUrl={usdzLink}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
         />
       ) : (

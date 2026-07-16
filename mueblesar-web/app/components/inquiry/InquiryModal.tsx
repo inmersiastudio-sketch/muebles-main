@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Phone, User, MessageSquare, CheckCircle, Loader2 } from "lucide-react";
 import type { ProductVariant } from "@/types";
+import { InquiryProductPreview } from "./InquiryProductPreview";
 
 interface InquiryModalProps {
   isOpen: boolean;
@@ -13,6 +14,9 @@ interface InquiryModalProps {
   productPrice: number;
   variant?: ProductVariant;
   storeWhatsApp?: string;
+  imageUrl?: string | null;
+  glbUrl?: string | null;
+  usdzUrl?: string | null;
 }
 
 export function InquiryModal({
@@ -24,6 +28,9 @@ export function InquiryModal({
   productPrice,
   variant,
   storeWhatsApp,
+  imageUrl,
+  glbUrl,
+  usdzUrl,
 }: InquiryModalProps) {
   const [formData, setFormData] = useState({
     customerName: "",
@@ -153,6 +160,13 @@ export function InquiryModal({
               {error}
             </div>
           )}
+
+          <InquiryProductPreview
+            productName={productName}
+            imageUrl={imageUrl}
+            glbUrl={glbUrl}
+            usdzUrl={usdzUrl}
+          />
 
           {/* Product Info */}
           {variant && (
