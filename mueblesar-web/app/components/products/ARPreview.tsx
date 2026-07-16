@@ -19,6 +19,7 @@ interface ARPreviewProps {
   widthCm?: number | null;
   depthCm?: number | null;
   heightCm?: number | null;
+  variant?: "default" | "compact";
 }
 
 type Vec3 = { x: number; y: number; z: number };
@@ -33,6 +34,7 @@ export function ARPreview({
   widthCm,
   depthCm,
   heightCm,
+  variant = "default",
 }: ARPreviewProps) {
   const [open, setOpen] = useState(false);
   const [origin, setOrigin] = useState<string>("");
@@ -316,16 +318,29 @@ export function ARPreview({
 
   return (
     <>
-      <button
-        className="h-12 w-full rounded-xl font-bold bg-[#1d4ed8] hover:bg-[#1e40af] text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm"
-        onClick={() => {
-          track("ar_click", { hasIos: Boolean(iosUrl) });
-          setOpen(true);
-        }}
-      >
-        <Box className="w-5 h-5" />
-        Ver en mi casa (AR)
-      </button>
+      {variant === "compact" ? (
+        <button
+          className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition-all shadow-sm"
+          onClick={() => {
+            track("ar_click", { hasIos: Boolean(iosUrl) });
+            setOpen(true);
+          }}
+          title="Ver en AR (Móvil/3D)"
+        >
+          <Box className="w-3.5 h-3.5" />
+        </button>
+      ) : (
+        <button
+          className="h-12 w-full rounded-xl font-bold bg-[#1d4ed8] hover:bg-[#1e40af] text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm"
+          onClick={() => {
+            track("ar_click", { hasIos: Boolean(iosUrl) });
+            setOpen(true);
+          }}
+        >
+          <Box className="w-5 h-5" />
+          Ver en mi casa (AR)
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 md:p-4">

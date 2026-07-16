@@ -235,7 +235,7 @@ export default function InventoryPage() {
         : "grid-cols-[44px_1fr_120px_150px_180px]";
     }
     if (activeTab === "ar") {
-      return "grid-cols-[44px_1fr_110px_140px_80px_180px]";
+      return "grid-cols-[44px_1fr_110px_140px_80px_230px]";
     }
     // stock
     return "grid-cols-[44px_1fr_110px_140px_110px_180px]";
@@ -976,7 +976,7 @@ export default function InventoryPage() {
                     {activeTab === "ar" && (
                       <>
                         {p.arUrl && (
-                          <ARPreview arUrl={p.arUrl ?? undefined} glbUrl={p.glbUrl ?? undefined} usdzUrl={p.usdzUrl ?? undefined} productId={p.id} productName={p.name} widthCm={p.widthCm ?? undefined} depthCm={p.depthCm ?? undefined} heightCm={p.heightCm ?? undefined} />
+                          <ARPreview variant="compact" arUrl={p.arUrl ?? undefined} glbUrl={p.glbUrl ?? undefined} usdzUrl={p.usdzUrl ?? undefined} productId={p.id} productName={p.name} widthCm={p.widthCm ?? undefined} depthCm={p.depthCm ?? undefined} heightCm={p.heightCm ?? undefined} />
                         )}
                         {p.arUrl && (
                           <button onClick={() => validate(p)} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 flex items-center justify-center transition-colors" title="Validar escala">
