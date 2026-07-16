@@ -316,6 +316,11 @@ export function ARPreview({
     }
   };
 
+  const mobileARLink = useMemo(() => {
+    if (isIOS) return iosUrl || "";
+    return androidIntent || "";
+  }, [isIOS, iosUrl, androidIntent]);
+
   return (
     <>
       {variant === "compact" ? (
@@ -399,14 +404,14 @@ export function ARPreview({
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                     <Smartphone size={16} /> Abrir en este dispositivo
                   </div>
-                  <Button
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] font-bold text-white shadow-sm transition-all hover:bg-[#1e40af] active:scale-[0.98]"
-                    onClick={() => track("ar_launch", { target: redirectUrl || androidIntent })}
+                  <a
+                    href={mobileARLink || undefined}
+                    rel={isIOS ? "ar" : undefined}
+                    onClick={() => track("ar_launch", { target: mobileARLink })}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white font-bold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                   >
-                    <a href={redirectUrl || androidIntent} target="_blank" rel="noreferrer">
-                      Abrir experiencia AR
-                    </a>
-                  </Button>
+                    Abrir experiencia AR
+                  </a>
                   <p className="text-xs text-slate-600">
                     Si estás en iPhone y el modelo no tiene USDZ, Quick Look no funcionará y verás
                     descarga/errores.
