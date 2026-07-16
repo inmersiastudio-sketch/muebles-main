@@ -89,7 +89,7 @@ function ARRedirectContent() {
   }, [glb, sceneViewerHttps, usdz]);
 
   const fallbackAndroid = sceneViewerHttps || glb;
-  const fallbackIOS = usdz || "";
+  const fallbackIOS = usdz ? `${usdz}#ar` : "";
 
   // If we are on iOS, show a big "Open AR" button. 
   // Apple strictly requires a click on <a rel="ar"> to trigger AR Quick Look.

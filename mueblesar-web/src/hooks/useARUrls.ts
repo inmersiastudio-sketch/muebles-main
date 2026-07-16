@@ -86,7 +86,7 @@ export function useARUrls({
     return {
       glbUrl: proxiedGlb ?? parsedGlb,
       glbUrlOriginal: urlForMobile,
-      iosUrl: parsedUsdz || undefined,
+      iosUrl: parsedUsdz ? `${parsedUsdz}#ar` : undefined,
       androidIntent: intent ?? parsedGlb,
       sceneViewerHttps: httpsViewer ?? parsedGlb,
       isMeshy,
