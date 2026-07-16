@@ -16,6 +16,8 @@ import type { AI3DProvider, ThirdPartyStatus, ProcessedModelResult, JobStatusRes
  * Handles Meshy/Tripo integration, image preprocessing, compression, and storage
  */
 export class AI3DService {
+  // Lock to prevent concurrent post-processing of the same job during frontend polling
+  private static processingJobs = new Set<string>();
   /**
    * Create a new 3D generation job
    * Now with automatic background removal and transaction-safe credit check/deduction
@@ -398,6 +400,16 @@ export class AI3DService {
       }
     }
 
+    // Prevent concurrent post-processing
+    if (AI3DService.processingJobs.has(jobId)) {
+      return {
+        id: job.id,
+        productId: job.productId,
+        status: 'IN_PROGRESS',
+        progress: 90,
+      };
+    }
+
     // Return cached result if already finalized
     if (job.status === AI3DJobStatus.SUCCEEDED || job.status === AI3DJobStatus.FAILED) {
       return {
@@ -428,6 +440,8 @@ export class AI3DService {
 
     // Handle completion
     if (thirdPartyStatus.status === 'SUCCEEDED' && thirdPartyStatus.model_urls?.glb) {
+      // Lock job from concurrent downloads
+      AI3DService.processingJobs.add(jobId);
       try {
         const result = await this.processAndUploadModel(
           job.id,
@@ -452,6 +466,7 @@ export class AI3DService {
           data: {
             status: AI3DJobStatus.SUCCEEDED,
             glbUrl: result.glbUrl,
+            usdzUrl: result.usdzUrl,
             metadata,
           },
         });
@@ -484,6 +499,9 @@ export class AI3DService {
           error: errorMessage,
           progress: 0,
         };
+      } finally {
+        // Unlock job
+        AI3DService.processingJobs.delete(jobId);
       }
 
     } else if (thirdPartyStatus.status === 'FAILED') {

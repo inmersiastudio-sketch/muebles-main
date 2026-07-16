@@ -41,6 +41,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader,
+  Sparkles,
 } from "lucide-react";
 
 // ─── Tabs ───
@@ -147,6 +148,8 @@ export default function InventoryPage() {
   const [importStoreId, setImportStoreId] = useState<string>("");
   const [selectedImportIndices, setSelectedImportIndices] = useState<Set<number>>(new Set());
   const [originalProduct, setOriginalProduct] = useState<AdminProductListItem | null>(null);
+
+  const [aiGeneratorProduct, setAiGeneratorProduct] = useState<AdminProductListItem | null>(null);
 
   // ─── Derived data ───
   const categories = useMemo(() => {
@@ -970,11 +973,18 @@ export default function InventoryPage() {
 
                   {/* Actions */}
                   <div className="flex items-center justify-end gap-1">
-                    {activeTab === "ar" && p.arUrl && (
+                    {activeTab === "ar" && (
                       <>
-                        <ARPreview arUrl={p.arUrl ?? undefined} glbUrl={p.glbUrl ?? undefined} usdzUrl={p.usdzUrl ?? undefined} productId={p.id} productName={p.name} widthCm={p.widthCm ?? undefined} depthCm={p.depthCm ?? undefined} heightCm={p.heightCm ?? undefined} />
-                        <button onClick={() => validate(p)} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 flex items-center justify-center transition-colors" title="Validar escala">
-                          <Check size={14} />
+                        {p.arUrl && (
+                          <ARPreview arUrl={p.arUrl ?? undefined} glbUrl={p.glbUrl ?? undefined} usdzUrl={p.usdzUrl ?? undefined} productId={p.id} productName={p.name} widthCm={p.widthCm ?? undefined} depthCm={p.depthCm ?? undefined} heightCm={p.heightCm ?? undefined} />
+                        )}
+                        {p.arUrl && (
+                          <button onClick={() => validate(p)} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 flex items-center justify-center transition-colors" title="Validar escala">
+                            <Check size={14} />
+                          </button>
+                        )}
+                        <button onClick={() => setAiGeneratorProduct(p)} className="w-7 h-7 rounded-lg bg-blue-50/50 hover:bg-blue-50 text-blue-500 hover:text-blue-600 flex items-center justify-center transition-colors" title="Generar Modelo 3D con IA">
+                          <Sparkles size={14} />
                         </button>
                       </>
                     )}
@@ -1027,6 +1037,40 @@ export default function InventoryPage() {
       {previewImageUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setPreviewImageUrl(null)}>
           <img src={previewImageUrl} className="max-h-[85vh] max-w-[85vw] rounded-xl shadow-2xl" alt="" />
+        </div>
+      )}
+
+      {/* ── AI 3D Generator Modal ── */}
+      {aiGeneratorProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setAiGeneratorProduct(null)}>
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Generación 3D Inteligente</h2>
+                <p className="text-xs text-slate-500">Producto: <span className="font-semibold text-slate-700">{aiGeneratorProduct.name}</span></p>
+              </div>
+              <button 
+                onClick={() => setAiGeneratorProduct(null)} 
+                className="text-slate-400 hover:text-slate-600 text-sm font-semibold p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <AI3DGenerator 
+                productId={aiGeneratorProduct.id} 
+                productName={aiGeneratorProduct.name}
+                currentImageUrl={aiGeneratorProduct.imageUrl} 
+                currentArUrl={aiGeneratorProduct.arUrl} 
+                currentGlbUrl={aiGeneratorProduct.glbUrl} 
+                currentUsdzUrl={aiGeneratorProduct.usdzUrl}
+                onSuccess={(glbUrl, usdzUrl) => { 
+                  setProducts(prev => prev.map(pr => pr.id === aiGeneratorProduct.id ? { ...pr, glbUrl, usdzUrl: usdzUrl || "" } : pr));
+                  loadProducts();
+                }} 
+              />
+            </div>
+          </div>
         </div>
       )}
 
