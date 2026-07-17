@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Heart, Box, Truck, Cuboid } from "lucide-react";
 import { FavoriteButton } from "../favorites/FavoriteButton";
-import { AddToCartButton } from "../cart/AddToCartButton";
 import type { ProductListItem } from "@/types";
 
 type Props = {
@@ -103,59 +102,44 @@ export function ProductCard({ product }: Props) {
       </div>
 
       {/* Product Info */}
-      <div className="flex flex-col flex-1 p-3 sm:p-4">
+      <div className="flex flex-col flex-1 p-4">
         {/* Store */}
         {product.store?.name && (
-          <p className="text-[10px] sm:text-[11px] text-[var(--gray-400)] uppercase tracking-wide mb-1 truncate">
+          <p className="text-[10px] text-[#0b6e5e] font-semibold uppercase tracking-wider mb-1.5 truncate">
             {product.store.name}
           </p>
         )}
 
         {/* Title */}
-        <Link href={`/productos/${product.slug}`}>
-          <h3 className="text-sm sm:text-[15px] font-medium text-[var(--gray-900)] leading-snug line-clamp-2 mb-2 group-hover:text-[var(--primary-600)] transition-colors">
+        <Link href={`/productos/${product.slug}`} className="block group/title">
+          <h3 className="text-[14px] sm:text-[15px] font-semibold text-[#1c2421] leading-snug line-clamp-2 mb-1.5 group-hover/title:text-[#0b6e5e] transition-colors">
             {product.name}
           </h3>
         </Link>
 
         {/* Category */}
-        <p className="text-[10px] text-[var(--gray-400)] mb-2">{product.category}</p>
+        <p className="text-[11px] text-[#61706a] mb-3">{product.category}</p>
 
         {/* Price Section */}
-        <div className="mt-auto pt-2">
-          {/* Precio original tachado */}
-          {hasDiscount && product.originalPrice && (
-            <p className="text-[11px] text-[var(--gray-400)] line-through">
-              ${product.originalPrice.toLocaleString("es-AR")}
-            </p>
-          )}
+        <div className="mt-auto pt-2 border-t border-[#e1e6e3]/60 flex items-center justify-between gap-2">
+          <div>
+            {/* Precio original tachado */}
+            {hasDiscount && product.originalPrice && (
+              <p className="text-[10px] text-[#8a9690] line-through">
+                ${product.originalPrice.toLocaleString("es-AR")}
+              </p>
+            )}
 
-          {/* Precio actual */}
-          <div className="flex items-baseline gap-1.5 mb-2">
-            <span className="text-lg sm:text-xl font-bold text-[var(--gray-900)]">
+            {/* Precio actual */}
+            <span className="text-base sm:text-lg font-bold text-[#1c2421]">
               ${product.price.toLocaleString("es-AR")}
             </span>
-            {product.price > 50000 && (
-              <span className="text-[10px] text-[var(--success-600)] font-medium">
-                Consultar envío
-              </span>
-            )}
           </div>
 
-          {/* Add to Cart */}
-          <AddToCartButton
-            product={{
-              id: product.id,
-              slug: product.slug,
-              name: product.name,
-              price: product.price,
-              imageUrl: product.imageUrl || null,
-              storeName: product.store?.name || "Sin tienda",
-              storeSlug: product.store?.slug || "",
-              storeWhatsapp: product.store?.whatsapp || null,
-            }}
-            className="w-full !h-8 !rounded-lg !bg-[var(--primary-600)] !text-white !text-xs !font-medium hover:!bg-[var(--primary-700)] active:!scale-[0.98] transition-all"
-          />
+          {/* Action indicator link */}
+          <span className="text-[11px] font-semibold text-[#0b6e5e] group-hover:underline flex items-center gap-0.5">
+            Ver detalle
+          </span>
         </div>
       </div>
     </article>
