@@ -5,7 +5,8 @@ import { Cuboid, ImageIcon, Rotate3D } from "lucide-react";
 import { FurnitureARViewer } from "../products/FurnitureARViewer";
 import { ImageWithFallback } from "../ui/ImageWithFallback";
 
-const HERO_IMAGE = "/images/landing-hero.png";
+const HERO_IMAGE = "/images/examples/hero-armchair-meshy-source.png";
+const HERO_MESHY_GLB = "https://mueblesar-modelos-3d-2026.s3.sa-east-1.amazonaws.com/product_4_3d_model_1784312651027.glb";
 
 type Props = {
   glbUrl?: string | null;
@@ -22,8 +23,7 @@ function resolveNetworkUrl(url: string): string {
 }
 
 function getFallbackModelUrl(): string {
-  const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
-  return resolveNetworkUrl(`${configuredBase.replace(/\/$/, "")}/api/ar/demo/pilot-sofa.glb`);
+  return HERO_MESHY_GLB;
 }
 
 /** Vista de bienvenida: modelo 3D manipulable o imagen del ambiente. */
