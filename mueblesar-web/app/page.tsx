@@ -153,20 +153,20 @@ export default function Home() {
       </section>
 
       {/* Benefits Bar */}
-      <section className="border-b border-[var(--gray-200)] bg-white">
+      <section className="bg-[#edf7f3]">
         <Container>
-          <div className="flex overflow-x-auto py-3 gap-4 sm:gap-0 sm:py-4 sm:justify-around">
+          <div className="flex overflow-x-auto py-3.5 gap-4 sm:gap-0 sm:py-4.5 sm:justify-around no-scrollbar">
             <div className="flex items-center gap-2 flex-shrink-0">
-              <MessageCircle className="h-4 w-4 text-[var(--success-600)] sm:h-5 sm:w-5" />
-              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">Consulta directa</span>
+              <MessageCircle className="h-4 w-4 text-[#0b6e5e] sm:h-5 sm:w-5" />
+              <span className="text-xs font-medium text-[#1c2421]/80 sm:text-sm">Consulta directa</span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <MapPin className="h-4 w-4 text-[var(--primary-600)] sm:h-5 sm:w-5" />
-              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">Tiendas locales</span>
+              <MapPin className="h-4 w-4 text-[#0b6e5e] sm:h-5 sm:w-5" />
+              <span className="text-xs font-medium text-[#1c2421]/80 sm:text-sm">Tiendas locales</span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Cuboid className="h-4 w-4 text-[var(--warning-500)] sm:h-5 sm:w-5" />
-              <span className="text-xs font-medium text-[var(--gray-700)] sm:text-sm">3D y AR</span>
+              <Cuboid className="h-4 w-4 text-[#e7a86e] sm:h-5 sm:w-5" />
+              <span className="text-xs font-medium text-[#1c2421]/80 sm:text-sm">3D y AR</span>
             </div>
           </div>
         </Container>
