@@ -35,50 +35,36 @@ router.get("/:productId", asyncHandler(async (req, res) => {
 
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, name: true, media: { where: { type: 'MODEL_3D' } } },
+    select: {
+      id: true,
+      name: true,
+      dimensions: true,
+      media: { where: { type: "MODEL_3D" } },
+    },
   });
 
   if (!product || product.media.length === 0) {
     throw Errors.notFound("Product or AR model");
   }
 
-  // Find glb and usdz from media array
-  const glbMedia = product.media.find(m => m.url.endsWith('.glb'));
-  const usdzMedia = product.media.find(m => m.url.endsWith('.usdz'));
-
-  const glbUrl = glbMedia?.url || product.media[0]?.url;
-  const usdzUrl = usdzMedia?.url || null;
+  const glbMedia = product.media.find((media) => media.mediaFormat === "GLB");
+  if (!glbMedia) {
+    throw Errors.notFound("Product GLB model");
+  }
+  const glbUrl = glbMedia.url;
 
   const host = req.headers.host || "localhost:3001";
   const cleanGlbUrl = replaceLocalhost(glbUrl, host);
-  const cleanUsdzUrl = usdzUrl ? replaceLocalhost(usdzUrl, host) : null;
+  const dimensions = product.dimensions && typeof product.dimensions === "object" && !Array.isArray(product.dimensions)
+    ? product.dimensions as Record<string, unknown>
+    : {};
 
-  const userAgent = req.headers["user-agent"] || "";
-  const isIOS = /iphone|ipad|ipod/i.test(userAgent.toLowerCase());
-  const isAndroid = /android/i.test(userAgent);
-
-  if (isIOS && cleanUsdzUrl) {
-    // Redirect directly to the USDZ file with #ar hash to launch Apple's native Quick Look in camera mode!
-    res.redirect(`${cleanUsdzUrl}#ar`);
-    return;
-  }
-
-  if (isAndroid && cleanGlbUrl) {
-    // Android auto-launches Scene Viewer when redirected to its https viewer URL
-    const sceneViewerUrl = `https://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(cleanGlbUrl)}&mode=ar_preferred&title=${encodeURIComponent(product.name)}`;
-    res.redirect(sceneViewerUrl);
-    return;
-  }
-
-  // Redirect to the AR page with clean params
+  // Redirect to the unified AR landing page with clean params (no direct USDZ/SceneViewer launch)
   const siteUrl = env.SITE_URL || "http://localhost:3000";
   const redirectUrl = new URL(`${siteUrl}/ar`);
   redirectUrl.searchParams.set("glb", cleanGlbUrl);
-
-  // Sanitize product name to prevent XSS
-  redirectUrl.searchParams.set("title", encodeURIComponent(product.name));
-
-  if (cleanUsdzUrl) redirectUrl.searchParams.set("usdz", cleanUsdzUrl);
+  redirectUrl.searchParams.set("title", product.name);
+  redirectUrl.searchParams.set("verified", dimensions.arVerified === true ? "true" : "false");
 
   res.redirect(redirectUrl.toString());
 }));

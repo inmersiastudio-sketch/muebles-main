@@ -65,7 +65,7 @@ export function ARPreview({
   );
 
   // New hooks
-  const { glbUrl, glbUrlOriginal, iosUrl, androidIntent, sceneViewerHttps } = useARUrls({
+  const { glbUrl, glbUrlOriginal } = useARUrls({
     arUrl,
     glbUrl: propGlbUrl,
     usdzUrl: propUsdzUrl,
@@ -97,20 +97,18 @@ export function ARPreview({
       url.pathname = "/ar";
       url.searchParams.set("glb", glbUrlOriginal || "");
       url.searchParams.set("title", productName);
-      if (iosUrl) url.searchParams.set("usdz", iosUrl);
       return url.toString();
     } catch {
       return "";
     }
-  }, [siteBase, glbUrlOriginal, iosUrl, productName]);
+  }, [siteBase, glbUrlOriginal, productName]);
 
   const qrUnified = useMemo(() => {
     const isLocalhost =
       String(siteBase).includes("localhost") || String(apiBase).includes("localhost");
 
     if (isLocalhost) {
-      const target = iosUrl || sceneViewerHttps || glbUrlOriginal;
-      return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(target || "")}`;
+      return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(redirectUrl || "")}`;
     }
 
     if (productId && apiBase) {
@@ -118,9 +116,8 @@ export function ARPreview({
       return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(shortUrl)}`;
     }
 
-    const target = redirectUrl ? redirectUrl : iosUrl || sceneViewerHttps || glbUrlOriginal;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(target || "")}`;
-  }, [productId, apiBase, siteBase, redirectUrl, iosUrl, sceneViewerHttps, glbUrlOriginal]);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(redirectUrl || "")}`;
+  }, [productId, apiBase, siteBase, redirectUrl]);
 
   // Load model-viewer script
   useEffect(() => {
@@ -317,9 +314,8 @@ export function ARPreview({
   };
 
   const mobileARLink = useMemo(() => {
-    if (isIOS) return iosUrl || "";
-    return androidIntent || "";
-  }, [isIOS, iosUrl, androidIntent]);
+    return redirectUrl;
+  }, [redirectUrl]);
 
   return (
     <>
@@ -327,7 +323,7 @@ export function ARPreview({
         <button
           className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition-all shadow-sm"
           onClick={() => {
-            track("ar_click", { hasIos: Boolean(iosUrl) });
+            track("ar_click", { hasGlb: Boolean(glbUrlOriginal) });
             setOpen(true);
           }}
           title="Ver en AR (Móvil/3D)"
@@ -338,7 +334,7 @@ export function ARPreview({
         <button
           className="h-12 w-full rounded-xl font-bold bg-[#1d4ed8] hover:bg-[#1e40af] text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-sm"
           onClick={() => {
-            track("ar_click", { hasIos: Boolean(iosUrl) });
+            track("ar_click", { hasGlb: Boolean(glbUrlOriginal) });
             setOpen(true);
           }}
         >
@@ -368,7 +364,6 @@ export function ARPreview({
                   ar
                   ar-modes="webxr scene-viewer quick-look"
                   ar-hit-test
-                  ios-src={iosUrl}
                   camera-controls
                   auto-rotate
                   style={{ width: "100%", height: "100%" }}
@@ -395,8 +390,7 @@ export function ARPreview({
                     />
                   </div>
                   <p className="pt-2 md:pt-3 text-xs text-slate-600">
-                    Detecta el dispositivo: iPhone abre Quick Look (USDZ si existe), Android abre Scene Viewer
-                    (GLB).
+                    El código abre una página unificada: iPhone genera Quick Look desde el GLB y Android usa WebXR o Scene Viewer.
                   </p>
                 </div>
 
@@ -413,8 +407,7 @@ export function ARPreview({
                     Abrir experiencia AR
                   </a>
                   <p className="text-xs text-slate-600">
-                    Si estás en iPhone y el modelo no tiene USDZ, Quick Look no funcionará y verás
-                    descarga/errores.
+                    La experiencia usa el GLB vigente y evita abrir archivos USDZ desactualizados.
                   </p>
                 </div>
 

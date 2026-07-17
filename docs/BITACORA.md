@@ -4,6 +4,26 @@ La bitacora registra decisiones que cambian el producto o su operacion. Las
 notas de investigacion y reportes transitorios se resumen aqui cuando su
 conclusion sigue vigente.
 
+## 2026-07-16 - Escala fisica y experiencia AR unificada
+
+- Los modelos GLB generados pueden reescalarse de forma uniforme contra las
+  dimensiones declaradas, centrarse en X/Z y apoyarse sobre Y=0 sin acumular
+  nodos de escala entre ejecuciones.
+- La generacion 3D y el panel de inventario registran si el resultado cumple
+  la tolerancia dimensional. Un resultado no verificado se presenta como vista
+  orientativa y no promete escala real.
+- El reescalado administrativo valida propiedad de tienda, formato GLB, origen
+  de almacenamiento, tiempo y tamano de descarga. Cada salida usa una URL
+  versionada; si falla la actualizacion de base se elimina el archivo nuevo y
+  se conserva la version anterior para rollback.
+- Los accesos AR y codigos QR convergen en la landing `/ar`. Android usa WebXR
+  o Scene Viewer e iOS genera Quick Look desde el GLB vigente, sin depender del
+  USDZ original sin escalar del proveedor.
+- Los fixtures cubren centrado, tolerancias, jerarquias rotadas, idempotencia y
+  documentos invalidos. Backend y frontend compilan; antes de publicar queda
+  pendiente validar escala, materiales y activacion AR en dispositivos iPhone
+  y Android reales.
+
 ## 2026-07-14 - Limpieza documental
 
 - Se retiraron auditorias, planes, guias de despliegue y notas de

@@ -1,5 +1,7 @@
 import { UserRole, AI3DJobStatus, MediaFormat } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { z } from 'zod';
+import { rescaleGLB } from '../lib/glb-scaler.js';
 import { createImageTo3DTask, getTaskStatus, downloadGLB } from '../lib/meshy.js';
 import { TripoClient } from '../lib/tripo.js';
 import { uploadGLBToS3, uploadUSDZToS3 } from '../lib/s3.js';
@@ -203,8 +205,35 @@ export class AI3DService {
     const originalBuffer = await downloadGLB(tempGlbUrl);
     const originalSize = originalBuffer.length;
 
+    // Fetch product to retrieve dimensions
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    let glbBufferToProcess = originalBuffer;
+    let targetCm: { widthCm?: number; heightCm?: number; depthCm?: number } | null = null;
+
+    if (product && product.dimensions) {
+      const dimensionsSchema = z.object({
+        widthCm: z.number().positive().optional(),
+        heightCm: z.number().positive().optional(),
+        depthCm: z.number().positive().optional(),
+      });
+      const parsedDims = dimensionsSchema.safeParse(product.dimensions);
+      if (parsedDims.success && (parsedDims.data.widthCm || parsedDims.data.heightCm || parsedDims.data.depthCm)) {
+        targetCm = parsedDims.data;
+        try {
+          console.log(`[AI3DService] Rescaling GLB for product ${productId} before compression...`);
+          const scaleResult = await rescaleGLB(originalBuffer, targetCm);
+          glbBufferToProcess = scaleResult.buffer;
+        } catch (scaleError) {
+          console.error(`[AI3DService] Scaling failed for product ${productId}:`, scaleError);
+        }
+      }
+    }
+
     // 2. Compress the GLB
-    let compressedBuffer = await compressGLB(originalBuffer);
+    let compressedBuffer = await compressGLB(glbBufferToProcess);
     let compressedSize = compressedBuffer.length;
     let sizeInfo = getFileSizeInfo(originalSize, compressedSize);
 
@@ -219,11 +248,42 @@ export class AI3DService {
       if (!isFileTooLargeError(firstUploadError)) throw firstUploadError;
 
       // Retry with maximum compression
-      compressedBuffer = await compressGLB(originalBuffer, { maxTextureSize: 128, maxCompression: true });
+      compressedBuffer = await compressGLB(glbBufferToProcess, { maxTextureSize: 128, maxCompression: true });
       compressedSize = compressedBuffer.length;
       sizeInfo = getFileSizeInfo(originalSize, compressedSize);
 
       uploadResult = await this.uploadWithFallback(compressedBuffer, fileKey);
+    }
+
+    // Validate the final compressed buffer scale
+    let isArVerified = false;
+    try {
+      const validationResult = await validateGLBScale(compressedBuffer);
+      if (validationResult.valid && targetCm && validationResult.boundingBox) {
+        const finalWidth = validationResult.boundingBox.width * 100;
+        const finalHeight = validationResult.boundingBox.height * 100;
+        const finalDepth = validationResult.boundingBox.depth * 100;
+        const diffW = targetCm.widthCm ? Math.abs(finalWidth - targetCm.widthCm) / targetCm.widthCm : 0;
+        const diffH = targetCm.heightCm ? Math.abs(finalHeight - targetCm.heightCm) / targetCm.heightCm : 0;
+        const diffD = targetCm.depthCm ? Math.abs(finalDepth - targetCm.depthCm) / targetCm.depthCm : 0;
+        isArVerified = diffW <= 0.05 && diffH <= 0.05 && diffD <= 0.05;
+      }
+    } catch (valErr) {
+      console.error(`[AI3DService] Bounding box validation failed on final buffer:`, valErr);
+    }
+
+    // Persist scale verification status in product dimensions JSON object
+    if (product && product.dimensions) {
+      const currentDims = product.dimensions as any;
+      await prisma.product.update({
+        where: { id: productId },
+        data: {
+          dimensions: {
+            ...currentDims,
+            arVerified: isArVerified,
+          },
+        },
+      });
     }
 
     const permanentGlbUrl = uploadResult.url;

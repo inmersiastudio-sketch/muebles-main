@@ -131,6 +131,7 @@ function InventoryPageContent() {
   const [variants, setVariants] = useState<ProductVariantForm[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [rescalingIds, setRescalingIds] = useState<Set<number>>(new Set());
   const [formValidation, setFormValidation] = useState<ValidationResult | { error: string } | null>(null);
   const [formValidating, setFormValidating] = useState(false);
 
@@ -323,6 +324,55 @@ function InventoryPageContent() {
       const data = await res.json();
       setValidation((p) => ({ ...p, [product.id]: res.ok ? data : { error: data?.error || `Error ${res.status}` } }));
     } catch (err) { setValidation((p) => ({ ...p, [product.id]: { error: (err as Error).message } })); }
+  };
+
+  const handleRescale = async (productId: number) => {
+    setRescalingIds((prev) => {
+      const next = new Set(prev);
+      next.add(productId);
+      return next;
+    });
+
+    try {
+      const res = await fetch(`${apiBase}/api/ar/rescale`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ productId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Error ${res.status}`);
+      }
+
+      setValidation((prev) => ({
+        ...prev,
+        [productId]: {
+          ok: data.arVerified,
+          sizeCm: data.afterCm,
+          expected: data.targetCm,
+          diffs: data.diffs,
+          tolerance: data.tolerance || 0.05,
+          suggestion: data.warnings && data.warnings.length > 0 ? {
+            dimension: data.sourceDimension,
+            factor: data.scaleFactor,
+            projectedSizeCm: data.afterCm,
+            projectedDiffs: data.diffs,
+          } : null,
+          warnings: data.warnings,
+        },
+      }));
+
+      loadProducts();
+    } catch (err) {
+      alert(`No se pudo re-escalar el modelo: ${(err as Error).message}`);
+    } finally {
+      setRescalingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    }
   };
 
   // ─── Drawer CRUD ───
@@ -1048,7 +1098,22 @@ function InventoryPageContent() {
                       ) : vr.ok ? (
                         <span className="text-emerald-600 flex items-center gap-1">✅ Escala OK</span>
                       ) : (
-                        <span className="text-amber-600 flex items-center gap-1">⚠️ Error de escala {vr.suggestion?.factor ? `(sugiere ×${vr.suggestion.factor.toFixed(3)})` : ""}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-600 flex items-center gap-1">⚠️ Error de escala {vr.suggestion?.factor ? `(sugiere ×${vr.suggestion.factor.toFixed(3)})` : ""}</span>
+                          <button
+                            onClick={() => handleRescale(p.id)}
+                            disabled={rescalingIds.has(p.id)}
+                            className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 hover:text-amber-800 text-[10px] font-bold border border-amber-200 transition-colors disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            {rescalingIds.has(p.id) ? (
+                              <>
+                                <Loader size={10} className="animate-spin" /> Aplicando...
+                              </>
+                            ) : (
+                              "Aplicar dimensiones"
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}

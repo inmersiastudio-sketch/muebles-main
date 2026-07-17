@@ -133,10 +133,14 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
             <div className="sticky top-4">
               <div className="h-[50vh] sm:h-[60vh] lg:h-[calc(100vh-120px)]">
                 <ColorImageCarousel
-                  images={typedProduct.variants.flatMap(v => v.images.map(img => ({
-                    url: img.url,
-                    type: v.attributes.color
-                  }))) || typedProduct.media.images.map(img => ({ url: img.url }))}
+                  images={
+                    typedProduct.variants.some(v => v.images.length > 0)
+                      ? typedProduct.variants.flatMap(v => v.images.map(img => ({
+                          url: img.url,
+                          type: v.attributes.color
+                        })))
+                      : typedProduct.media.images.map(img => ({ url: img.url }))
+                  }
                   alt={typedProduct.name}
                   initialColor={defaultVariant?.attributes.color}
                   arUrl={typedProduct.media.model3d?.glbUrl}

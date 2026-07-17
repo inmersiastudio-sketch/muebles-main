@@ -1,13 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-
-const uaIsIOS = (ua: string) => /iphone|ipad|ipod/.test(ua.toLowerCase());
+import { Box, Loader, Info } from "lucide-react";
 
 export default function ARRedirectPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-center">Redirigiendo…</div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-center">Cargando…</div>}>
       <ARRedirectContent />
     </Suspense>
   );
@@ -28,136 +27,133 @@ function replaceLocalhost(url: string | null | undefined): string {
 function ARRedirectContent() {
   const params = useSearchParams();
   const rawGlb = params.get("glb") ?? "";
-  const rawUsdz = params.get("usdz") ?? "";
   const glb = replaceLocalhost(rawGlb);
-  const usdz = replaceLocalhost(rawUsdz);
-  const title = params.get("title") ?? "Modelo AR";
+  const title = params.get("title") ?? "Modelo 3D";
+  const isVerified = params.get("verified") === "true";
 
-  const [isClientIOS, setIsClientIOS] = useState(false);
+  const [modelViewerLoaded, setModelViewerLoaded] = useState(false);
+  const [loadingModel, setLoadingModel] = useState(true);
+  const [viewerError, setViewerError] = useState<string | null>(null);
 
+  // Load model-viewer script dynamically
   useEffect(() => {
-    if (typeof navigator !== "undefined" && uaIsIOS(navigator.userAgent)) {
-      setIsClientIOS(true);
+    if (typeof window === "undefined") return;
+
+    if (window.customElements && window.customElements.get("model-viewer")) {
+      setModelViewerLoaded(true);
+      return;
     }
+
+    const markReady = () => {
+      window.customElements.whenDefined("model-viewer")
+        .then(() => setModelViewerLoaded(true))
+        .catch(() => setViewerError("No se pudo inicializar el visor 3D."));
+    };
+
+    const existing = document.querySelector<HTMLScriptElement>("script[data-model-viewer]");
+    if (existing) {
+      markReady();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js";
+    script.dataset.modelViewer = "true";
+    script.addEventListener("load", markReady, { once: true });
+    script.addEventListener("error", () => {
+      setViewerError("No se pudo cargar el visor 3D. Revisá tu conexión e intentá nuevamente.");
+      setLoadingModel(false);
+    }, { once: true });
+    document.head.appendChild(script);
   }, []);
 
-  const track = (name: string, props?: Record<string, unknown>) => {
-    console.info("[ar-event]", name, props ?? {});
-    try {
-      window.dispatchEvent(new CustomEvent("ar-event", { detail: { name, props } }));
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  const sceneViewerHttps = useMemo(() => {
-    if (!glb) {
-      console.log("[AR Page] No GLB URL provided");
-      return "";
-    }
-    const url = `https://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(glb)}&mode=ar_preferred&title=${encodeURIComponent(title)}`;
-    console.log("[AR Page] GLB URL:", glb);
-    console.log("[AR Page] Scene Viewer URL:", url);
-    return url;
-  }, [glb, title]);
-
-  useEffect(() => {
-    console.log("[AR Page] Params:", { glb, usdz, title });
-    track("ar_qr_open", { glb, usdz: Boolean(usdz) });
-    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-    const isIOS = uaIsIOS(ua);
-    if (isIOS && usdz) {
-      // DO NOT auto-redirect iOS USDZ via window.location.
-      // Apple's Safari requires a user gesture on an anchor tag with rel="ar" to trigger Quick Look.
-      // Auto-redirects just trigger a plain file download instead.
-      return;
-    }
-    if (isIOS && !usdz) {
-      track("ar_qr_fail", { reason: "missing_usdz", glb: Boolean(glb) });
-    }
-    if (sceneViewerHttps) {
-      track("ar_qr_success", { target: "android_scene_viewer", url: sceneViewerHttps });
-      track("ar_launch", { target: "android_scene_viewer", url: sceneViewerHttps });
-      window.location.replace(sceneViewerHttps);
-      return;
-    }
-    if (glb) {
-      track("ar_qr_success", { target: "fallback_glb", url: glb });
-      track("ar_launch", { target: "fallback_glb", url: glb });
-      window.location.replace(glb);
-    }
-  }, [glb, sceneViewerHttps, usdz]);
-
-  const fallbackAndroid = sceneViewerHttps || glb;
-  const fallbackIOS = usdz ? `${usdz}#ar` : "";
-
-  // If we are on iOS, show a big "Open AR" button. 
-  // Apple strictly requires a click on <a rel="ar"> to trigger AR Quick Look.
-  if (isClientIOS && fallbackIOS) {
+  if (!glb) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-10 text-center">
-        <div className="w-full max-w-sm space-y-6 rounded-3xl bg-white p-8 shadow-xl">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Mueble 3D listo</h1>
-            <p className="text-sm text-slate-500">
-              Toca el botón debajo para proyectar este modelo en tu espacio usando AR Quick Look.
-            </p>
-          </div>
-          <a
-            rel="ar"
-            href={fallbackIOS}
-            onClick={() => {
-              track("ar_qr_success", { target: "ios_usdz", url: fallbackIOS });
-              track("ar_launch", { target: "ios_usdz", url: fallbackIOS });
-            }}
-            className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
-          >
-            Abrir en Realidad Aumentada
-          </a>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-center">
+        <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-8 shadow-xl">
+          <Info className="mx-auto h-12 w-12 text-amber-500" />
+          <h1 className="text-xl font-bold text-slate-900">Modelo no disponible</h1>
+          <p className="text-sm text-slate-500">
+            No se especificó la dirección del archivo GLB. Por favor, verificá el enlace o el código QR.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-center">
-      <div className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow">
-        <h1 className="text-lg font-semibold text-slate-900">Abriendo experiencia AR…</h1>
-        <p className="text-sm text-slate-600">
-          Detectamos tu dispositivo y te redirigimos al visor nativo. Si no pasa nada en unos segundos, usa los botones de abajo.
-        </p>
-
-        {/* Debug info */}
-        <div className="rounded-lg bg-slate-100 p-3 text-left text-xs">
-          <div className="font-semibold text-slate-700 mb-1">Debug Info:</div>
-          <div className="text-slate-600 break-all">
-            <div><strong>GLB:</strong> {glb || "No GLB"}</div>
-            <div><strong>USDZ:</strong> {usdz || "No USDZ"}</div>
-            <div><strong>Scene Viewer URL:</strong> {sceneViewerHttps || "No URL"}</div>
-          </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-6 md:py-10 text-center">
+      <div className="w-full max-w-md space-y-6 rounded-3xl bg-white p-6 md:p-8 shadow-xl border border-slate-100">
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
+          <p className="text-xs text-slate-500">Visualización 3D y Realidad Aumentada</p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <a
-            href={fallbackAndroid || "#"}
-            className="rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-primary shadow-sm hover:border-primary"
-          >
-            Abrir en Android (Scene Viewer)
-          </a>
-          <a
-            rel="ar"
-            href={fallbackIOS || "#"}
-            className={`rounded-lg border px-4 py-3 text-sm font-semibold shadow-sm ${fallbackIOS ? "border-slate-200 text-primary hover:border-primary" : "border-slate-100 text-slate-400 cursor-not-allowed"}`}
-          >
-            Abrir en iPhone (Quick Look)
-          </a>
+        {/* 3D Viewer Container */}
+        <div className="relative flex h-[350px] w-full items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/50 overflow-hidden">
+          {!modelViewerLoaded && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-50 z-10">
+              <Loader className="h-8 w-8 animate-spin text-blue-600" />
+              <span className="text-xs text-slate-500 font-semibold">Cargando visor 3D…</span>
+            </div>
+          )}
+
+          {viewerError && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-amber-50 p-6 text-amber-900">
+              <Info className="h-8 w-8" />
+              <span className="text-sm font-semibold">{viewerError}</span>
+            </div>
+          )}
+
+          {modelViewerLoaded && (
+            <model-viewer
+              src={glb}
+              alt={title}
+              ar
+              ar-modes="webxr scene-viewer quick-look"
+              ar-scale="fixed"
+              camera-controls
+              auto-rotate
+              shadow-intensity="1.5"
+              exposure="1.2"
+              style={{ width: "100%", height: "100%" }}
+              onLoad={() => setLoadingModel(false)}
+            >
+              {/* Custom AR Button inside model-viewer using slot="ar-button" */}
+              <button
+                slot="ar-button"
+                id="ar-button"
+                className="absolute bottom-4 left-4 right-4 flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 z-20 cursor-pointer"
+              >
+                <Box size={18} /> {isVerified ? "Proyectar en AR (escala verificada)" : "Proyectar en AR"}
+              </button>
+            </model-viewer>
+          )}
+
+          {modelViewerLoaded && loadingModel && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-50/30 backdrop-blur-[2px] z-10">
+              <Loader className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="text-xs text-slate-400 font-semibold">Cargando objeto 3D…</span>
+            </div>
+          )}
         </div>
-        <p className="text-xs text-slate-500">
-          iPhone necesita USDZ para AR; Android usa GLB con Scene Viewer. Si ves descarga en iPhone, el modelo no tiene USDZ.
-        </p>
+
+        <div className="rounded-xl bg-slate-50 p-4 text-left border border-slate-100">
+          <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Info size={14} className="text-blue-600" /> Instrucciones de uso
+          </h2>
+          <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
+            <li>Arrastrá con un dedo para rotar el modelo en 3D en pantalla.</li>
+            <li>Pellizcá con dos dedos para acercar o alejar el zoom.</li>
+            <li>Presioná <strong>Proyectar en AR</strong> para ubicar el modelo en tu ambiente.</li>
+          </ul>
+          {!isVerified && (
+            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Vista orientativa: la escala física de este modelo todavía no fue verificada.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
