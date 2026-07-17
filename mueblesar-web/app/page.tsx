@@ -173,67 +173,63 @@ export default function Home() {
       </section>
 
       {/* Rooms Section */}
-      <section className="mt-6 sm:mt-10">
+      <section className="py-12 sm:py-16">
         <Container>
-          <div className="rounded-2xl border border-[var(--gray-200)] bg-white p-4 shadow-sm sm:p-6 transition-all duration-300">
-            <div className="mb-4 flex items-end justify-between sm:mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-[var(--gray-900)] sm:text-2xl">Explorá por ambientes</h2>
-                <p className="text-xs text-[var(--gray-500)] mt-1">Encontrá el mueble perfecto para cada rincón de tu casa</p>
-              </div>
-              <Link href="/productos" className="text-xs font-semibold text-[var(--primary-600)] hover:text-[#075247] hover:underline sm:text-sm">
-                Ver todos
-              </Link>
+          <div className="mb-8 flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-bold uppercase tracking-wider text-[#1c2421] sm:text-3xl">Explorá por ambientes</h2>
+              <p className="text-xs text-[#61706a] mt-1.5">Encontrá el mueble perfecto para cada rincón de tu casa</p>
             </div>
+            <Link href="/productos" className="text-xs font-bold uppercase tracking-wider text-[#0b6e5e] hover:text-[#075247] hover:underline sm:text-sm">
+              Ver todos
+            </Link>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-              {featuredRooms.map((room) => (
-                <Link
-                  key={room.href}
-                  href={room.href}
-                  className="group overflow-hidden rounded-xl border border-[var(--gray-200)]/80 shadow-sm"
-                >
-                  <div className="relative aspect-[16/10]">
-                    <img
-                      src={room.image}
-                      alt={room.label}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
-                    <span className="absolute bottom-3 left-3 text-xs font-bold text-white tracking-wide sm:bottom-4 sm:left-4 sm:text-sm">
-                      {room.label}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
+            {featuredRooms.map((room) => (
+              <Link
+                key={room.href}
+                href={room.href}
+                className="group overflow-hidden rounded-none shadow-sm"
+              >
+                <div className="relative aspect-[16/10]">
+                  <img
+                    src={room.image}
+                    alt={room.label}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
+                  <span className="absolute bottom-3 left-3 text-xs font-bold uppercase tracking-wider text-white sm:bottom-4 sm:left-4 sm:text-sm">
+                    {room.label}
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
         </Container>
       </section>
 
       {/* Products Section with Suspense */}
-      <section className="mt-6 sm:mt-10">
+      <section className="py-12 sm:py-16 border-t border-[#e1e6e3]/60 bg-white">
         <Container>
-          <div className="rounded-2xl border border-[var(--gray-200)] bg-white p-4 shadow-sm sm:p-6 transition-all duration-300">
-            <div className="mb-4 flex items-end justify-between sm:mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-[var(--gray-900)] sm:text-2xl">Productos destacados</h2>
-                <p className="text-xs text-[var(--gray-500)] mt-1">Nuestra selección de piezas exclusivas para vos</p>
-              </div>
-              <Link
-                href="/productos"
-                className="text-xs font-semibold text-[var(--primary-600)] hover:text-[#075247] hover:underline sm:text-sm"
-              >
-                Ver más
-              </Link>
+          <div className="mb-8 flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-bold uppercase tracking-wider text-[#1c2421] sm:text-3xl">Productos destacados</h2>
+              <p className="text-xs text-[#61706a] mt-1.5">Nuestra selección de piezas exclusivas para vos</p>
             </div>
-
-            <Suspense fallback={<ProductGridSkeleton count={8} />}>
-              <ProductsSection />
-            </Suspense>
+            <Link
+              href="/productos"
+              className="text-xs font-bold uppercase tracking-wider text-[#0b6e5e] hover:text-[#075247] hover:underline sm:text-sm"
+            >
+              Ver más
+            </Link>
           </div>
+
+          <Suspense fallback={<ProductGridSkeleton count={8} />}>
+            <ProductsSection />
+          </Suspense>
         </Container>
       </section>
       </div>
