@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { Armchair, BedDouble, DoorOpen, Lamp, Table2, type LucideIcon } from "lucide-react";
 // import { cn } from "@/app/lib/utils";
 
 // Simple class merger/joiner to replace 'cn' if not available
@@ -10,36 +11,49 @@ function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
-const categories = [
+type VisualCategory = {
+  id: string;
+  label: string;
+  image?: string;
+  icon: LucideIcon;
+};
+
+const categories: VisualCategory[] = [
+  {
+    id: "sillon",
+    label: "Sillones",
+    icon: Armchair,
+  },
   {
     id: "sofas",
     label: "Sofás",
-    image: "/categories/sofas.png", 
+    image: "/categories/sofas.png",
+    icon: Armchair,
   },
   {
     id: "sillas",
     label: "Sillas",
-    image: "/categories/sillas.png",
+    icon: Armchair,
   },
   {
     id: "mesas",
     label: "Mesas",
-    image: "/categories/mesas.png",
+    icon: Table2,
   },
   {
     id: "camas",
     label: "Camas",
-    image: "/categories/camas.png",
+    icon: BedDouble,
   },
   {
     id: "armarios",
     label: "Armarios",
-    image: "/categories/armarios.png",
+    icon: DoorOpen,
   },
   {
     id: "iluminacion",
     label: "Iluminación",
-    image: "/categories/iluminacion.png",
+    icon: Lamp,
   },
 ];
 
@@ -47,15 +61,24 @@ export function VisualCategoryFilter() {
   const searchParams = useSearchParams();
   const currentCategory = searchParams.get("category");
 
+  const categoryHref = (categoryId: string, isActive: boolean) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (isActive) params.delete("category");
+    else params.set("category", categoryId);
+    const query = params.toString();
+    return query ? `/buscar?${query}` : "/buscar";
+  };
+
   return (
     <div className="w-full overflow-x-auto pb-4 pt-2">
       <div className="flex min-w-max gap-4 px-1">
         {categories.map((cat) => {
           const isActive = currentCategory === cat.id;
+          const Icon = cat.icon;
           return (
             <Link
               key={cat.id}
-              href={isActive ? "/buscar" : `/buscar?category=${cat.id}`}
+              href={categoryHref(cat.id, isActive)}
               className={cn(
                 "group flex flex-col items-center gap-2 rounded-xl border p-4 transition-all hover:border-slate-400 hover:shadow-md",
                 isActive
@@ -69,7 +92,6 @@ export function VisualCategoryFilter() {
                   isActive ? "text-primary" : "text-slate-400 group-hover:text-slate-600"
                 )}
               >
-                {/* Blueprint Style Image if present, fallback handled by placeholder logic or empty */}
                 <div className="relative w-full h-full p-1">
                    {cat.image ? (
                      <Image 
@@ -80,7 +102,7 @@ export function VisualCategoryFilter() {
                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                      />
                    ) : (
-                    <span className="text-[10px] text-center">No Img</span>
+                    <Icon className="h-full w-full p-3" strokeWidth={1.5} aria-hidden="true" />
                    )}
                 </div>
               </div>

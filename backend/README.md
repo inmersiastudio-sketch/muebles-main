@@ -25,6 +25,7 @@ El servicio escucha en http://localhost:3001 y responde en /health.
 | npm.cmd run dev | Desarrollo con recarga. |
 | npm.cmd run build | Genera Prisma y compila TypeScript. |
 | npm.cmd run db:seed | Carga datos de ejemplo solo en desarrollo. |
+| npm.cmd run db:seed:pilot | Crea o actualiza el piloto 3D sin borrar datos. |
 | npm.cmd run validate:glb-scale | Valida escala de un GLB. |
 
 La configuracion de variables, pruebas y despliegue se mantiene en

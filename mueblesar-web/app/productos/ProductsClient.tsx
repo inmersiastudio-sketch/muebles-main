@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Box, Search, SlidersHorizontal, X } from "lucide-react";
 import { ProductCard } from "../components/products/ProductCard";
 import type { ProductListItem } from "@/types";
 import { EmptySearch, NoResultsWithFilters } from "../components/ui/EmptyState";
@@ -14,11 +15,15 @@ const PAGE_SIZE = 8;
 
 interface Props {
   initialProducts: ProductListItem[];
+  initialArOnly?: boolean;
+  initialSort?: "price_asc" | "price_desc";
 }
 
-export function ProductsClient({ initialProducts }: Props) {
+export function ProductsClient({ initialProducts, initialArOnly = false, initialSort }: Props) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
+  const [arOnly, setArOnly] = useState(initialArOnly);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showFilters, setShowFilters] = useState(true);
 
@@ -28,8 +33,35 @@ export function ProductsClient({ initialProducts }: Props) {
   const maxPrice = useMemo(() => (prices.length > 0 ? Math.max(...prices) : 1000000), [prices]);
   const [priceRange, setPriceRange] = useState<[number, number]>([minPrice, maxPrice]);
 
+  // Al cambiar la lista (por ejemplo, al filtrar solo modelos 3D), sus límites
+  // pueden cambiar. Restablecemos el rango para que el slider no reciba valores
+  // fuera de sus nuevos extremos.
+  useEffect(() => {
+    setPriceRange([minPrice, maxPrice]);
+  }, [minPrice, maxPrice]);
+
   // Sort state
-  const [sort, setSort] = useState<SortOption>({ value: "relevance", label: "Relevancia", direction: "desc" });
+  const [sort, setSort] = useState<SortOption>(initialSort === "price_asc"
+    ? { value: "price", label: "Precio: menor a mayor", direction: "asc" }
+    : initialSort === "price_desc"
+      ? { value: "price", label: "Precio: mayor a menor", direction: "desc" }
+      : { value: "relevance", label: "Relevancia", direction: "desc" });
+
+  useEffect(() => {
+    setArOnly(initialArOnly);
+  }, [initialArOnly]);
+
+  function handleArOnlyChange() {
+    const nextValue = !arOnly;
+    setArOnly(nextValue);
+    setVisibleCount(PAGE_SIZE);
+
+    const params = new URLSearchParams(window.location.search);
+    if (nextValue) params.set("arOnly", "true");
+    else params.delete("arOnly");
+    const query = params.toString();
+    router.replace(query ? `/productos?${query}` : "/productos", { scroll: false });
+  }
 
   const filtered = useMemo(() => {
     let items = [...initialProducts];
@@ -57,6 +89,11 @@ export function ProductsClient({ initialProducts }: Props) {
     // Price filter
     items = items.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
+    // 3D / AR filter
+    if (arOnly) {
+      items = items.filter((p) => Boolean(p.hasAr || p.glbUrl || p.usdzUrl));
+    }
+
     // Sort
     switch (sort.value) {
       case "price":
@@ -82,13 +119,14 @@ export function ProductsClient({ initialProducts }: Props) {
     }
 
     return items;
-  }, [initialProducts, selectedCategory, search, priceRange, sort]);
+  }, [initialProducts, selectedCategory, search, priceRange, arOnly, sort]);
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
   const activeFiltersCount =
     (selectedCategory !== "Todos" ? 1 : 0) +
     (search ? 1 : 0) +
+    (arOnly ? 1 : 0) +
     (priceRange[0] !== minPrice || priceRange[1] !== maxPrice ? 1 : 0);
 
   function handleCategoryChange(cat: string) {
@@ -104,6 +142,7 @@ export function ProductsClient({ initialProducts }: Props) {
   function handleClearFilters() {
     setSearch("");
     setSelectedCategory("Todos");
+    setArOnly(false);
     setPriceRange([minPrice, maxPrice]);
     setSort({ value: "relevance", label: "Relevancia", direction: "desc" });
     setVisibleCount(PAGE_SIZE);
@@ -161,7 +200,7 @@ export function ProductsClient({ initialProducts }: Props) {
         {/* Sidebar Filters */}
         {showFilters && (
           <aside className="w-full shrink-0 lg:w-[280px]">
-            <div className="bg-white rounded-xl border border-[var(--gray-200)] p-4">
+            <div className="min-w-0 overflow-hidden bg-white rounded-xl border border-[var(--gray-200)] p-4">
               <div className="flex items-center justify-between pb-4 border-b border-[var(--gray-200)]">
                 <h3 className="font-bold text-lg text-[var(--gray-900)]">Filtros</h3>
                 {activeFiltersCount > 0 && (
@@ -196,7 +235,7 @@ export function ProductsClient({ initialProducts }: Props) {
               </div>
 
               {/* Price Range Filter */}
-              <div className="py-4">
+              <div className="py-4 border-b border-[var(--gray-200)]">
                 <h4 className="font-semibold text-[var(--gray-900)] mb-2">Rango de precio</h4>
                 <PriceRangeSlider
                   min={minPrice}
@@ -208,6 +247,24 @@ export function ProductsClient({ initialProducts }: Props) {
                   }}
                   step={10000}
                 />
+              </div>
+
+              {/* 3D / AR Filter */}
+              <div className="pt-4">
+                <h4 className="font-semibold text-[var(--gray-900)] mb-3">Experiencia</h4>
+                <button
+                  type="button"
+                  aria-pressed={arOnly}
+                  onClick={handleArOnlyChange}
+                  className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm font-medium transition-colors ${arOnly
+                    ? "border-[var(--primary-600)] bg-[var(--primary-50)] text-[var(--primary-700)]"
+                    : "border-[var(--gray-200)] bg-white text-[var(--gray-700)] hover:bg-[var(--gray-50)]"
+                    }`}
+                >
+                  <Box className="h-5 w-5 shrink-0" />
+                  <span className="flex-1">Con modelo 3D / AR</span>
+                  <span className={`h-4 w-4 rounded border ${arOnly ? "border-[var(--primary-600)] bg-[var(--primary-600)]" : "border-[var(--gray-300)]"}`} />
+                </button>
               </div>
             </div>
           </aside>
@@ -223,7 +280,7 @@ export function ProductsClient({ initialProducts }: Props) {
                 <span className="text-[var(--gray-900)]"> en <span className="font-medium">{selectedCategory}</span></span>
               )}
               {search && (
-                <span className="text-[var(--gray-900)]"> para <span className="font-medium">"{search}"</span></span>
+                <span className="text-[var(--gray-900)]"> para <span className="font-medium">&ldquo;{search}&rdquo;</span></span>
               )}
             </p>
 
@@ -242,6 +299,14 @@ export function ProductsClient({ initialProducts }: Props) {
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--primary-50)] text-[var(--primary-700)] text-xs rounded-full">
                     ${(priceRange[0] / 1000).toFixed(0)}k - ${(priceRange[1] / 1000).toFixed(0)}k
                     <button onClick={() => setPriceRange([minPrice, maxPrice])} className="hover:text-[var(--primary-900)]">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {arOnly && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--primary-50)] text-[var(--primary-700)] text-xs rounded-full">
+                    Con 3D / AR
+                    <button onClick={handleArOnlyChange} className="hover:text-[var(--primary-900)]" aria-label="Quitar filtro 3D y AR">
                       <X className="w-3 h-3" />
                     </button>
                   </span>

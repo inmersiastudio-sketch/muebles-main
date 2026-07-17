@@ -8,6 +8,7 @@ const footerLinks = [
   { href: "/productos", label: "Catálogo" },
   { href: "/mueblerias", label: "Mueblerías" },
   { href: "/contacto", label: "Contacto" },
+  { href: "/ventas", label: "Vender en Amobly" },
   { href: "/terminos", label: "Términos" },
   { href: "/privacidad", label: "Privacidad" },
 ];

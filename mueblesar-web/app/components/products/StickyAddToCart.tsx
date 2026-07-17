@@ -25,6 +25,7 @@ interface StickyAddToCartProps {
     widthCm?: number;
     depthCm?: number;
     heightCm?: number;
+    isVerified?: boolean;
   };
   disabled?: boolean;
 }
@@ -114,6 +115,7 @@ export function StickyAddToCart({ product, arData, disabled = false }: StickyAdd
               widthCm={arData.widthCm}
               depthCm={arData.depthCm}
               heightCm={arData.heightCm}
+              isVerified={arData.isVerified}
             />
           </div>
         )}

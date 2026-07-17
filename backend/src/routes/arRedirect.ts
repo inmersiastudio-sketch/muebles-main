@@ -33,8 +33,8 @@ router.get("/:productId", asyncHandler(async (req, res) => {
     throw Errors.validation("Invalid product ID");
   }
 
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
+  const product = await prisma.product.findFirst({
+    where: { id: productId, isActive: true, store: { isActive: true } },
     select: {
       id: true,
       name: true,

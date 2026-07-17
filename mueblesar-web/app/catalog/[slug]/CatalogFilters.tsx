@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { SlidersHorizontal, X, ChevronDown } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Box, SlidersHorizontal, X, ChevronDown } from "lucide-react";
 
 interface CatalogFiltersProps {
   slug: string;
@@ -13,6 +13,7 @@ interface CatalogFiltersProps {
   currentRoom?: string;
   currentSort?: string;
   currentDirection?: string;
+  currentArOnly?: boolean;
 }
 
 const SORT_OPTIONS = [
@@ -31,9 +32,9 @@ export function CatalogFilters({
   currentRoom,
   currentSort = "createdAt",
   currentDirection = "desc",
+  currentArOnly = false,
 }: CatalogFiltersProps) {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const buildQueryString = (updates: Record<string, string | undefined>) => {
@@ -56,7 +57,7 @@ export function CatalogFilters({
   )?.label || "Ordenar por";
 
   const activeFiltersCount =
-    (currentCategory ? 1 : 0) + (currentRoom ? 1 : 0);
+    (currentCategory ? 1 : 0) + (currentRoom ? 1 : 0) + (currentArOnly ? 1 : 0);
 
   return (
     <>
@@ -87,6 +88,18 @@ export function CatalogFilters({
               {cat.label}
             </Link>
           ))}
+          <Link
+            href={`/catalog/${slug}${buildQueryString({ arOnly: currentArOnly ? undefined : "true" })}`}
+            aria-pressed={currentArOnly}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              currentArOnly
+                ? "bg-[var(--primary-600)] text-white"
+                : "bg-white border border-[var(--gray-200)] text-[var(--gray-700)] hover:bg-[var(--gray-50)]"
+            }`}
+          >
+            <Box className="h-4 w-4" />
+            Con 3D / AR
+          </Link>
         </div>
 
         {/* Mobile Filter Toggle */}
@@ -189,7 +202,7 @@ export function CatalogFilters({
           </div>
 
           {/* Mobile Rooms */}
-          <div>
+          <div className="mb-4">
             <h4 className="text-sm font-medium text-[var(--gray-700)] mb-2">Ambiente</h4>
             <div className="flex flex-wrap gap-2">
               {rooms.map((room) => (
@@ -211,8 +224,26 @@ export function CatalogFilters({
             </div>
           </div>
 
+          {/* Mobile 3D / AR */}
+          <div>
+            <h4 className="text-sm font-medium text-[var(--gray-700)] mb-2">Experiencia</h4>
+            <Link
+              href={`/catalog/${slug}${buildQueryString({ arOnly: currentArOnly ? undefined : "true" })}`}
+              onClick={() => setShowMobileFilters(false)}
+              aria-pressed={currentArOnly}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-full transition-colors ${
+                currentArOnly
+                  ? "bg-[var(--primary-600)] text-white"
+                  : "bg-[var(--gray-100)] text-[var(--gray-700)]"
+              }`}
+            >
+              <Box className="h-4 w-4" />
+              Con modelo 3D / AR
+            </Link>
+          </div>
+
           {/* Clear Filters */}
-          {(currentCategory || currentRoom) && (
+          {(currentCategory || currentRoom || currentArOnly) && (
             <Link
               href={`/catalog/${slug}`}
               onClick={() => setShowMobileFilters(false)}
@@ -244,6 +275,18 @@ export function CatalogFilters({
               <Link
                 href={`/catalog/${slug}${buildQueryString({ room: undefined })}`}
                 className="hover:text-[var(--primary-900)]"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Link>
+            </span>
+          )}
+          {currentArOnly && (
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--primary-50)] text-[var(--primary-700)] text-sm rounded-full">
+              Con 3D / AR
+              <Link
+                href={`/catalog/${slug}${buildQueryString({ arOnly: undefined })}`}
+                className="hover:text-[var(--primary-900)]"
+                aria-label="Quitar filtro 3D y AR"
               >
                 <X className="w-3.5 h-3.5" />
               </Link>

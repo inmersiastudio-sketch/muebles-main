@@ -8,26 +8,25 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { ProductCard } from "../components/products/ProductCard";
 import { fetchProducts, fetchStores } from "../lib/api";
-import type { Product, Store, ProductListItem } from "@/types";
+import type { Store, ProductListItem } from "@/types";
 import { VisualCategoryFilter } from "../components/filters/VisualCategoryFilter";
+import { Box } from "lucide-react";
+import { ImageWithFallback } from "../components/ui/ImageWithFallback";
 
-export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string }> }) {
+export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; arOnly?: string }> }) {
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
   const category = params.category;
+  const arOnly = params.arOnly === "true";
+  const categoryLabel = category === "sillon" ? "Sillones" : category;
 
   // Also consider showing result if category is selected, even without query text
-  const hasQuery = query.length > 0 || !!category;
+  const hasQuery = query.length > 0 || !!category || arOnly;
 
-  const [productsRes, storesRes] = hasQuery
-    ? await Promise.all([
-      fetchProducts({ q: query, category }),
-      fetchStores({ q: query }), // Stores might not filter by product category easily unless improved backend
-    ])
-    : [
-      { items: [], total: 0 },
-      { items: [], total: 0 },
-    ];
+  const [productsRes, storesRes] = await Promise.all([
+    hasQuery ? fetchProducts({ q: query, category, arOnly }) : Promise.resolve({ items: [], total: 0 }),
+    query ? fetchStores({ q: query }) : Promise.resolve({ items: [], total: 0 }),
+  ]);
 
   const products = productsRes.items;
   const stores = storesRes.items;
@@ -49,21 +48,38 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
             {/* Preserve category during text search if desired, or simpler: reset category on new text search */}
             {category && <input type="hidden" name="category" value={category} />}
+            {arOnly && <input type="hidden" name="arOnly" value="true" />}
 
             <Button type="submit" className="shrink-0">
               Buscar
             </Button>
           </form>
+
+          <Link
+            href={`/buscar?${new URLSearchParams({
+              ...(query ? { q: query } : {}),
+              ...(category ? { category } : {}),
+              ...(arOnly ? {} : { arOnly: "true" }),
+            }).toString()}`}
+            aria-current={arOnly ? "page" : undefined}
+            className={`inline-flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${arOnly
+              ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white"
+              : "border-[var(--gray-200)] bg-white text-[var(--gray-700)] hover:bg-[var(--gray-50)]"
+              }`}
+          >
+            <Box className="h-4 w-4" />
+            {arOnly ? "Mostrar todos los productos" : "Solo productos con 3D / AR"}
+          </Link>
         </div>
 
         {hasQuery && (
           <div className="space-y-10">
-            <section className="space-y-3">
+            {query && <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-primary">Productos</p>
                   <h2 className="text-2xl font-semibold text-slate-900">
-                    {category ? `Categoría: ${category}` : `Resultados para "${query}"`}
+                    {category ? `Categoría: ${categoryLabel}` : `Resultados para "${query}"`}
                   </h2>
                 </div>
                 <div className="text-sm text-slate-600">{productsRes.total} encontrados</div>
@@ -76,11 +92,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   </div>
                 )}
 
-                {products.map((product: any) => (
-                  <ProductCard key={product.id} product={product as ProductListItem} />
+                {products.map((product: ProductListItem) => (
+                  <ProductCard key={product.id} product={product} />
                 ))}
               </div>
-            </section>
+            </section>}
 
             <section className="space-y-3">
               <div className="flex items-baseline justify-between gap-2">
@@ -107,7 +123,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                     <div className="flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         {store.logoUrl ? (
-                          <img src={store.logoUrl} alt={store.name} className="h-12 w-12 rounded-lg object-cover" />
+                          <ImageWithFallback src={store.logoUrl} alt={store.name} className="h-12 w-12 rounded-lg object-cover" />
                         ) : (
                           <span className="text-sm font-semibold">{store.name.slice(0, 2).toUpperCase()}</span>
                         )}

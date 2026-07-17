@@ -110,8 +110,8 @@ function ARRedirectContent() {
             <model-viewer
               src={glb}
               alt={title}
-              ar
-              ar-modes="webxr scene-viewer quick-look"
+              ar={isVerified || undefined}
+              ar-modes={isVerified ? "webxr scene-viewer quick-look" : undefined}
               ar-scale="fixed"
               camera-controls
               auto-rotate
@@ -121,13 +121,13 @@ function ARRedirectContent() {
               onLoad={() => setLoadingModel(false)}
             >
               {/* Custom AR Button inside model-viewer using slot="ar-button" */}
-              <button
+              {isVerified && <button
                 slot="ar-button"
                 id="ar-button"
                 className="absolute bottom-4 left-4 right-4 flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 z-20 cursor-pointer"
               >
                 <Box size={18} /> {isVerified ? "Proyectar en AR (escala verificada)" : "Proyectar en AR"}
-              </button>
+              </button>}
             </model-viewer>
           )}
 
@@ -146,11 +146,11 @@ function ARRedirectContent() {
           <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
             <li>Arrastrá con un dedo para rotar el modelo en 3D en pantalla.</li>
             <li>Pellizcá con dos dedos para acercar o alejar el zoom.</li>
-            <li>Presioná <strong>Proyectar en AR</strong> para ubicar el modelo en tu ambiente.</li>
+            {isVerified && <li>Presioná <strong>Proyectar en AR</strong> para ubicar el modelo en tu ambiente.</li>}
           </ul>
           {!isVerified && (
             <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Vista orientativa: la escala física de este modelo todavía no fue verificada.
+              Vista 3D orientativa: la escala física todavía no fue verificada y la proyección AR está deshabilitada.
             </p>
           )}
         </div>

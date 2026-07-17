@@ -34,6 +34,12 @@ export interface CatalogProduct {
   images: { url: string; altText: string | null; position: number }[];
   shippingCost: number | null;
   isFreeShipping: boolean;
+  arVerified: boolean;
+  packageWidthCm: number | null;
+  packageHeightCm: number | null;
+  packageDepthCm: number | null;
+  packageWeightKg: number | null;
+  packagePiecesCount: number;
 }
 
 export interface CatalogStore {
@@ -109,7 +115,7 @@ export class CatalogService {
       priceMin?: number;
       priceMax?: number;
       arOnly?: boolean;
-      sort?: 'price' | 'createdAt';
+      sort?: 'price' | 'createdAt' | 'name';
       direction?: 'asc' | 'desc';
     } = {}
   ): Promise<CatalogResponse> {
@@ -180,6 +186,8 @@ export class CatalogService {
     const orderBy: any = [];
     if (filters.sort === 'price') {
       orderBy.push({ variants: { _min: { salePrice: filters.direction || 'asc' } } });
+    } else if (filters.sort === 'name') {
+      orderBy.push({ name: filters.direction || 'asc' });
     } else {
       orderBy.push({ isFeatured: 'desc' });
       orderBy.push({ createdAt: filters.direction || 'desc' });
@@ -271,6 +279,7 @@ export class CatalogService {
         storeId: store.id,
         category: product.category,
         id: { not: product.id },
+        isActive: true,
         inventory: { availableStock: { gt: 0 } },
       },
       take: 4,
@@ -353,6 +362,8 @@ export class CatalogService {
     // Parse dimensions (it's JSON)
     const dimensions = product.dimensions || {};
     const materials = product.materials || {};
+    const logistics = product.logistics || {};
+    const packageDimensions = dimensions.packageDimensions || {};
 
     return {
       id: product.id,
@@ -386,6 +397,12 @@ export class CatalogService {
       })) || [],
       shippingCost: product.pricing?.shippingCost ?? null,
       isFreeShipping: product.pricing?.shippingCost === 0,
+      arVerified: dimensions?.arVerified === true,
+      packageWidthCm: packageDimensions.widthCm ? Number(packageDimensions.widthCm) : null,
+      packageHeightCm: packageDimensions.heightCm ? Number(packageDimensions.heightCm) : null,
+      packageDepthCm: packageDimensions.depthCm ? Number(packageDimensions.depthCm) : null,
+      packageWeightKg: packageDimensions.weightKg ? Number(packageDimensions.weightKg) : null,
+      packagePiecesCount: Number(logistics?.packaging?.piecesCount) || 1,
     };
   }
 }

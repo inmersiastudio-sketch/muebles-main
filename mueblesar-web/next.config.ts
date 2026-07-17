@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Permite abrir el entorno de desarrollo desde teléfonos y tablets de la LAN.
+  allowedDevOrigins: ["192.168.1.157"],
   images: {
     remotePatterns: [
       {

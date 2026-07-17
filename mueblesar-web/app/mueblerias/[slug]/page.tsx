@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { fetchStoreBySlug } from "@/app/lib/api";
 import { Container } from "@/app/components/layout/Container";
 import { ProductCard } from "@/app/components/products/ProductCard";
-import { EmptyProducts } from "@/app/components/ui/EmptyState";
 import {
   MapPin,
   MessageCircle,
@@ -267,6 +266,13 @@ export default async function StoreProfilePage({ params }: Props) {
             >
               Ver catálogo completo
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <Link
+              href={`/catalog/${slug}?arOnly=true`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#0058a3] hover:text-[#003566] transition-colors"
+            >
+              <Cuboid className="w-4 h-4" />
+              Ver productos con 3D / AR
             </Link>
           </div>
 

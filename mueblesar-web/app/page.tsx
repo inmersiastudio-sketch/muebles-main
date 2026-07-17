@@ -4,10 +4,11 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ProductCard } from "./components/products/ProductCard";
 import { Container } from "./components/layout/Container";
-import { fetchProducts } from "./lib/api";
+import { fetchProductBySlug, fetchProducts } from "./lib/api";
 import { ArrowRight, Cuboid, MapPin, MessageCircle } from "lucide-react";
 import type { ProductListItem } from "@/types";
 import { ProductGridSkeleton } from "./components/ui/Skeleton";
+import { HeroProductPreview } from "./components/home/HeroProductPreview";
 
 const featuredRooms = [
   { label: "Living", href: "/productos?room=living", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=600" },
@@ -47,7 +48,11 @@ async function ProductsSection() {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const heroProduct = await fetchProductBySlug("sillon-acapulco");
+  const heroGlbUrl = heroProduct?.media?.model3d?.glbUrl;
+  const heroImageUrl = heroProduct?.media?.images?.[0]?.url;
+
   return (
     <>
       <script
@@ -133,20 +138,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Hero Image */}
+            {/* Hero 3D preview */}
             <div className="order-1 flex items-center justify-center lg:order-2">
-              <div className="relative w-full max-w-[320px] sm:max-w-[380px] lg:max-w-[450px]">
-                <img
-                  src="/images/landing-hero.png"
-                  alt="Living moderno con sillón de pana verde esmeralda y almohadones terracota"
-                  className="w-full h-auto rounded-2xl shadow-2xl shadow-black/35 object-cover"
-                />
-                {/* Float Badge */}
-                <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-lg bg-white/95 px-3.5 py-2 shadow-lg backdrop-blur-sm">
-                  <span className="flex h-2 w-2 rounded-full bg-[#0b6e5e] animate-pulse" />
-                  <p className="text-xs font-semibold text-[#1c2421]">Proyección AR Activa</p>
-                </div>
-              </div>
+              <HeroProductPreview glbUrl={heroGlbUrl} imageUrl={heroImageUrl} />
             </div>
           </div>
         </Container>

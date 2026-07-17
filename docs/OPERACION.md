@@ -44,6 +44,38 @@ El seed es solo para desarrollo. No lo ejecutes en produccion: carga datos de
 demostracion y no es un procedimiento de alta de datos productivos. Tampoco
 dependas del auto-seed en una base de produccion.
 
+### Catalogo piloto para pruebas 3D/AR
+
+Existe un seed separado, idempotente y no destructivo que crea la muebleria
+`Estudio Nativo · Piloto Amobly` y el producto completo `Sofa Nativo Boucle`.
+Incluye un GLB procedural a escala real (2,00 x 0,90 x 0,80 m), medidas de
+embalaje (2,05 x 0,95 x 0,85 m), precio, stock, variante, materiales,
+garantia y logistica. No consume creditos de generacion 3D.
+
+Antes de ejecutarlo en el entorno elegido, configura las URLs publicas. Las
+variables de contacto y acceso son opcionales; si no se define una contrasena,
+el usuario piloto se crea con una clave aleatoria no comunicada y no se puede
+usar para iniciar sesion.
+
+~~~text
+SITE_URL=https://www.tu-frontend.com
+API_BASE_URL=https://api.tu-dominio.com
+PILOT_STORE_PASSWORD=una-clave-segura-opcional
+PILOT_STORE_WHATSAPP=5493510000000
+PILOT_STORE_PHONE=+54 9 351 000-0000
+PILOT_PRODUCT_IMAGE_URL=https://cdn.tu-dominio.com/sofa-piloto.png
+~~~
+
+~~~powershell
+Set-Location backend
+npm.cmd run db:seed:pilot
+~~~
+
+El comando puede repetirse después de un despliegue: actualiza únicamente los
+registros con los slugs/SKU del piloto y sus medios, sin limpiar otras tiendas
+o productos. `PILOT_PRODUCT_IMAGE_URL` puede omitirse si el frontend sirve el
+asset incluido en `/images/examples/sofa-boucle-roble-ai.png`.
+
 El registro de una muebleria necesita PostgreSQL activo. Si la base no esta
 disponible, el formulario llega a la API pero no puede completar el alta.
 

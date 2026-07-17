@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box } from "lucide-react";
 
 type Vector3 = { x: number; y: number; z: number };
 type Point2D = { x: number; y: number };
@@ -18,7 +17,6 @@ type ModelViewerElement = HTMLElement & {
 
 type Props = {
   src: string;
-  iosSrc?: string | null;
   alt?: string;
   showPackageBox?: boolean;
   packagePadding?: number;
@@ -74,7 +72,6 @@ function formatPackageCm(valueInMeters: number) {
 
 export function FurnitureARViewer({
   src,
-  iosSrc,
   alt = "Modelo 3D Amobly",
   showPackageBox = true,
   packagePadding = 0.05,
@@ -88,8 +85,6 @@ export function FurnitureARViewer({
   const [scriptError, setScriptError] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState<Vector3 | null>(null);
   const [boxPoints, setBoxPoints] = useState<BoxPoints>({});
-
-  const hasValidIosSrc = iosSrc ? iosSrc.trim().length > 0 : false;
 
   useEffect(() => {
     let cancelled = false;
@@ -248,13 +243,10 @@ export function FurnitureARViewer({
           viewerRef.current = node as ModelViewerElement | null;
         }}
         src={src}
-        ios-src={iosSrc}
         alt={alt}
         camera-controls
         touch-action="pan-y"
         auto-rotate
-        ar
-        ar-modes="scene-viewer quick-look webxr"
         ar-scale="fixed"
         shadow-intensity="1.5"
         shadow-softness="1"
@@ -263,15 +255,6 @@ export function FurnitureARViewer({
         interaction-prompt="auto"
         className="h-full w-full"
       >
-        <button
-          slot="ar-button"
-          type="button"
-          className="absolute bottom-4 right-4 z-20 inline-flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-colors hover:bg-black"
-        >
-          <Box className="h-4 w-4" />
-          Visualizar en AR
-        </button>
-
         {VERTEX_KEYS.map((key) => (
           <div key={key} slot={`hotspot-${key}`} />
         ))}

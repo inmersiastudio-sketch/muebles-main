@@ -22,6 +22,30 @@ const ProductListQuerySchema = z.object({
   hasAr: z.string().optional().transform((v) => v === 'true'),
 });
 
+function normalizeSearchText(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+/** Busca tanto la forma con tilde como sin tilde para términos frecuentes del catálogo. */
+function searchTerms(value: string): string[] {
+  const normalized = normalizeSearchText(value);
+  if (normalized === "sillon" || normalized === "sillones") {
+    return ["sillon", "sillón", "sillones"];
+  }
+  return [value.trim()];
+}
+
+function productTextSearch(value: string) {
+  return {
+    OR: searchTerms(value).flatMap((term) => [
+      { name: { contains: term, mode: "insensitive" as const } },
+      { description: { contains: term, mode: "insensitive" as const } },
+      { category: { contains: term, mode: "insensitive" as const } },
+      { tags: { has: term } },
+    ]),
+  };
+}
+
 // ============================================
 // HELPERS DE TRANSFORMACIÓN
 // ============================================
@@ -220,12 +244,23 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
     const where: any = {
       isActive: true,
+      store: { isActive: true },
     };
 
+    const searchFilters: any[] = [];
+
     // Filtros
-    if (query.category) where.category = query.category;
-    if (query.room) where.room = query.room;
-    if (query.style) where.style = query.style;
+    if (query.category) {
+      const normalizedCategory = normalizeSearchText(query.category);
+      if (normalizedCategory === "sillon" || normalizedCategory === "sillones") {
+        // La opción visual «Sillones» engloba categoría, nombre, descripción y etiquetas.
+        searchFilters.push(productTextSearch("sillon"));
+      } else {
+        where.category = { equals: query.category, mode: 'insensitive' };
+      }
+    }
+    if (query.room) where.room = { equals: query.room, mode: 'insensitive' };
+    if (query.style) where.style = { equals: query.style, mode: 'insensitive' };
 
     // Filtro de precio (en variantes)
     if (query.minPrice || query.maxPrice) {
@@ -240,13 +275,8 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     }
 
     // Búsqueda por texto
-    if (query.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
-        { tags: { has: query.search } },
-      ];
-    }
+    if (query.search) searchFilters.push(productTextSearch(query.search));
+    if (searchFilters.length > 0) where.AND = searchFilters;
 
     // Filtro AR (tiene modelo 3D)
     if (query.hasAr) {
@@ -302,11 +332,15 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
           media: {
             where: {
               OR: [
-                { type: 'IMAGE', isPrimary: true },
+                { type: 'IMAGE' },
                 { type: 'MODEL_3D' }
               ]
             },
-            select: { type: true, url: true, mediaFormat: true },
+            orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+            select: { type: true, url: true, mediaFormat: true, isPrimary: true },
+          },
+          pricing: {
+            select: { salePrice: true, listPrice: true, currency: true },
           },
           inventory: {
             select: { availableStock: true },
@@ -318,7 +352,8 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
     // Transformar para frontend (versión ligera para listado)
     const transformedProducts = products.map((p: any) => {
-      const primaryImage = p.media?.find((m: any) => m.type === 'IMAGE')?.url;
+      const images = p.media?.filter((m: any) => m.type === 'IMAGE') || [];
+      const primaryImage = images.find((m: any) => m.isPrimary)?.url || images[0]?.url;
       const hasModel3d = p.media?.some((m: any) => m.type === 'MODEL_3D');
       const glbUrl = p.media?.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'GLB')?.url;
       const usdzUrl = p.media?.find((m: any) => m.type === 'MODEL_3D' && m.mediaFormat === 'USDZ')?.url;
@@ -332,7 +367,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         price: p.variants?.[0]?.salePrice || p.pricing?.salePrice || 0,
         originalPrice: p.variants?.[0]?.listPrice || p.pricing?.listPrice,
         currency: p.variants?.[0]?.currency || p.pricing?.currency || 'ARS',
-        imageUrl: p.variants?.[0]?.images?.[0]?.url || primaryImage,
+        imageUrl: p.variants?.[0]?.images?.[0]?.url || primaryImage || null,
         store: p.store,
         inStock: (p.inventory?.availableStock || 0) > 0,
         hasAr: hasModel3d,

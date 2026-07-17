@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { z } from "zod";
-import { validateGlbScale } from "../lib/scaleValidator.js";
 import { requireAuth, requireRole, type AuthenticatedRequest } from "../lib/auth.js";
 import { UserRole } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
@@ -10,6 +9,8 @@ import { validateGLBScale } from "../lib/glb-validator.js";
 import { uploadGLBToS3, deleteFromS3 } from "../lib/s3.js";
 import { uploadGLB, deleteAsset } from "../lib/cloudinary.js";
 import { env } from "../config/env.js";
+import { generatePackageGLB } from "../lib/package-glb-generator.js";
+import { generatePilotSofaGLB } from "../lib/pilot-sofa-glb.js";
 
 const router = Router();
 
@@ -28,17 +29,58 @@ const dimensionsSchema = z.object({
   depthCm: z.number().positive().optional(),
 }).passthrough();
 
-const bodySchema = z
-  .object({
-    file: z.string().min(1),
-    widthCm: z.number().optional(),
-    depthCm: z.number().optional(),
-    heightCm: z.number().optional(),
-    tolerance: z.number().optional().default(0.05),
-  })
-  .refine((data) => data.widthCm || data.depthCm || data.heightCm, {
-    message: "Se requiere al menos una dimensión (widthCm/depthCm/heightCm)",
+const validationQuerySchema = z.object({
+  tolerance: z.coerce.number().min(0.001).max(0.5).default(0.05),
+});
+
+router.get("/package/:productId", async (req, res) => {
+  const productId = z.coerce.number().int().positive().safeParse(req.params.productId);
+  if (!productId.success) return res.status(400).json({ error: "ID de producto inválido." });
+
+  const product = await prisma.product.findFirst({
+    where: { id: productId.data, isActive: true, store: { isActive: true } },
+    select: { id: true, updatedAt: true, dimensions: true },
   });
+  if (!product) return res.status(404).json({ error: "Producto no encontrado." });
+
+  const dimensions = product.dimensions && typeof product.dimensions === "object" && !Array.isArray(product.dimensions)
+    ? product.dimensions as Record<string, unknown>
+    : {};
+  const rawPackage = dimensions.packageDimensions;
+  const parsedPackage = dimensionsSchema.safeParse(rawPackage);
+  if (!parsedPackage.success || !parsedPackage.data.widthCm || !parsedPackage.data.heightCm || !parsedPackage.data.depthCm) {
+    return res.status(404).json({ error: "Este producto no tiene dimensiones completas de embalaje." });
+  }
+
+  try {
+    const glb = await generatePackageGLB({
+      widthCm: parsedPackage.data.widthCm,
+      heightCm: parsedPackage.data.heightCm,
+      depthCm: parsedPackage.data.depthCm,
+    });
+    res.setHeader("Content-Type", "model/gltf-binary");
+    res.setHeader("Content-Disposition", `inline; filename=embalaje-producto-${product.id}.glb`);
+    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.setHeader("ETag", `\"package-${product.id}-${product.updatedAt.getTime()}\"`);
+    return res.send(glb);
+  } catch (error) {
+    console.error("No se pudo generar el GLB de embalaje:", error);
+    return res.status(422).json({ error: "Las dimensiones de embalaje no son válidas." });
+  }
+});
+
+router.get("/demo/pilot-sofa.glb", async (_req, res) => {
+  try {
+    const glb = await generatePilotSofaGLB();
+    res.setHeader("Content-Type", "model/gltf-binary");
+    res.setHeader("Content-Disposition", "inline; filename=sofa-piloto-amobly.glb");
+    res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    return res.send(glb);
+  } catch (error) {
+    console.error("No se pudo generar el GLB del sofá piloto:", error);
+    return res.status(500).json({ error: "No se pudo cargar el modelo piloto." });
+  }
+});
 
 type Suggestion = {
   dimension: "width" | "depth" | "height";
@@ -72,23 +114,71 @@ function computeSuggestion(
 }
 
 router.post("/validate-scale", requireAuth, requireRole([UserRole.SUPER_ADMIN, UserRole.STORE_OWNER]), async (req, res) => {
-  const parsed = bodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Payload inválido", details: parsed.error.flatten() });
+  const parsedBody = rescaleBodySchema.safeParse(req.body);
+  const parsedQuery = validationQuerySchema.safeParse(req.query);
+  if (!parsedBody.success || !parsedQuery.success) {
+    return res.status(400).json({ error: "Se requiere únicamente un productId entero positivo y una tolerancia válida." });
   }
 
-  const { file, widthCm, depthCm, heightCm, tolerance } = parsed.data;
+  const { productId } = parsedBody.data;
+  const { tolerance } = parsedQuery.data;
 
   try {
-    const result = await validateGlbScale({ file, width: widthCm, depth: depthCm, height: heightCm, tolerance });
-    const suggestion = computeSuggestion(result.sizeCm, result.expected);
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) return res.status(401).json({ error: "Sesión no válida." });
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { storeId: true, dimensions: true },
+    });
+    if (!product) return res.status(404).json({ error: "Producto no encontrado." });
+    if (user.role === UserRole.STORE_OWNER && product.storeId !== user.storeId) {
+      return res.status(403).json({ error: "No tenés permisos sobre este producto." });
+    }
+
+    const parsedDimensions = dimensionsSchema.safeParse(product.dimensions);
+    if (!parsedDimensions.success || !(parsedDimensions.data.widthCm || parsedDimensions.data.heightCm || parsedDimensions.data.depthCm)) {
+      return res.status(400).json({ error: "El producto no tiene dimensiones válidas configuradas." });
+    }
+
+    const glbMedia = await prisma.productMedia.findFirst({
+      where: { productId, type: "MODEL_3D", mediaFormat: "GLB" },
+      select: { url: true },
+    });
+    if (!glbMedia) return res.status(404).json({ error: "El producto no tiene un modelo GLB para validar." });
+
+    const buffer = await downloadModelBuffer(glbMedia.url);
+    const validation = await validateGLBScale(buffer);
+    if (!validation.valid || !validation.boundingBox) {
+      return res.status(422).json({ error: "El archivo GLB no contiene una geometría válida.", details: validation.errors });
+    }
+
+    const sizeCm = {
+      width: Math.round(validation.boundingBox.width * 1000) / 10,
+      depth: Math.round(validation.boundingBox.depth * 1000) / 10,
+      height: Math.round(validation.boundingBox.height * 1000) / 10,
+    };
+    const expected = {
+      width: parsedDimensions.data.widthCm,
+      depth: parsedDimensions.data.depthCm,
+      height: parsedDimensions.data.heightCm,
+    };
+    const diffs = {
+      width: expected.width ? Math.abs(sizeCm.width - expected.width) / expected.width : null,
+      depth: expected.depth ? Math.abs(sizeCm.depth - expected.depth) / expected.depth : null,
+      height: expected.height ? Math.abs(sizeCm.height - expected.height) / expected.height : null,
+    };
+    const ok = Object.values(diffs).every((diff) => diff === null || diff <= tolerance);
+    const suggestion = computeSuggestion(sizeCm, expected);
+
     return res.json({
-      ok: result.ok,
-      sizeCm: result.sizeCm,
-      expected: result.expected,
-      diffs: result.diffs,
-      tolerance: result.tolerance,
+      ok,
+      sizeCm,
+      expected,
+      diffs,
+      tolerance,
       suggestion,
+      warnings: validation.warnings,
     });
   } catch (err) {
     console.error("Scale validation error:", err);

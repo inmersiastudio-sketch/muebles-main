@@ -130,7 +130,7 @@ export interface CatalogFilters {
   priceMin?: number;
   priceMax?: number;
   arOnly?: boolean;
-  sort?: "price" | "createdAt";
+  sort?: "price" | "createdAt" | "name";
   direction?: "asc" | "desc";
   page?: number;
   pageSize?: number;
@@ -189,5 +189,4 @@ export async function fetchCatalogProduct(storeSlug: string, productSlug: string
     return null;
   }
 }
-
 

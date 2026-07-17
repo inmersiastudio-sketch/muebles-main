@@ -19,10 +19,9 @@ export function ImageCarousel({ images, alt, arUrl, glbUrl: propGlbUrl, usdzUrl:
 
   // Derived URLs for model viewer
   const apiBase = useMemo(() => process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3001", []);
-  const { glbUrl, iosUrl } = useMemo(() => {
+  const { glbUrl } = useMemo(() => {
     // Use new separate fields first, fallback to arUrl for backward compatibility
     let parsedGlb = propGlbUrl || arUrl || "";
-    let parsedUsdz = propUsdzUrl;
 
     // Check if arUrl (legacy) is still in the old dual-format JSON string from the backend
     if (!propGlbUrl && arUrl) {
@@ -30,7 +29,6 @@ export function ImageCarousel({ images, alt, arUrl, glbUrl: propGlbUrl, usdzUrl:
         const obj = JSON.parse(arUrl);
         if (typeof obj === "object" && obj !== null && obj.glb) {
           parsedGlb = obj.glb;
-          if (obj.usdz) parsedUsdz = obj.usdz;
         }
       } catch {
         // It's a standard string, proceed normally
@@ -44,13 +42,10 @@ export function ImageCarousel({ images, alt, arUrl, glbUrl: propGlbUrl, usdzUrl:
       ? `${apiBase}/api/proxy/glb?url=${encodeURIComponent(glb)}`
       : glb;
 
-    const iosCandidate = parsedUsdz && parsedUsdz.toLowerCase().includes(".usdz") ? parsedUsdz : undefined;
-
     return {
       glbUrl: proxiedGlb ?? parsedGlb,
-      iosUrl: iosCandidate,
     };
-  }, [arUrl, propGlbUrl, propUsdzUrl, apiBase]);
+  }, [arUrl, propGlbUrl, apiBase]);
 
   const hasStrictAr = Boolean(glbUrl);
   const hasAr = hasArAsset && hasStrictAr;
@@ -98,7 +93,6 @@ export function ImageCarousel({ images, alt, arUrl, glbUrl: propGlbUrl, usdzUrl:
           <div className="h-full w-full cursor-move">
             <FurnitureARViewer
               src={glbUrl}
-              iosSrc={iosUrl}
               alt={`Modelo 3D de ${alt}`}
               className="rounded-none border-0"
             />

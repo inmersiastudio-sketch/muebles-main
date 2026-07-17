@@ -56,16 +56,14 @@ export function ProductViewer({
   }, [viewMode, hasAr]);
 
   // Parse URLs
-  const { glbUrl, iosUrl } = useMemo(() => {
+  const { glbUrl } = useMemo(() => {
     let parsedGlb = propGlbUrl || arUrl || "";
-    let parsedUsdz = propUsdzUrl;
 
     if (!propGlbUrl && arUrl) {
       try {
         const obj = JSON.parse(arUrl);
         if (typeof obj === "object" && obj !== null && obj.glb) {
           parsedGlb = obj.glb;
-          if (obj.usdz) parsedUsdz = obj.usdz;
         }
       } catch {
         // Standard string
@@ -80,16 +78,10 @@ export function ProductViewer({
       ? `${apiBase}/api/proxy/glb?url=${encodeURIComponent(glb)}`
       : glb;
 
-    let iosCandidate = parsedUsdz;
-    if (!iosCandidate && glb) {
-      iosCandidate = parsedGlb.replace(/\.glb(\?.*)?$/, ".usdz$1");
-    }
-
     return {
       glbUrl: proxiedGlb ?? parsedGlb,
-      iosUrl: iosCandidate,
     };
-  }, [arUrl, propGlbUrl, propUsdzUrl]);
+  }, [arUrl, propGlbUrl]);
 
   const safeImages = images.filter(Boolean);
 
@@ -205,12 +197,9 @@ export function ProductViewer({
 
             <model-viewer
               src={glbUrl}
-              ios-src={iosUrl}
               alt={`Modelo 3D de ${alt}`}
               camera-controls
               auto-rotate={!showRuler}
-              ar
-              ar-modes="webxr scene-viewer quick-look"
               shadow-intensity="1"
               environment-image="neutral"
               exposure="1"

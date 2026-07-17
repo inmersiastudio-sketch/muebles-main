@@ -12,6 +12,7 @@ import { ProductCard } from "@/app/components/products/ProductCard";
 import { StickyAddToCart } from "@/app/components/products/StickyAddToCart";
 import { ShareButton } from "@/app/components/products/ShareButton";
 import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
+import { PackageARPreview } from "@/app/components/products/PackageARPreview";
 import { ARPreview } from "@/app/components/products/ARPreview";
 import type { Product, ProductListItem } from "@/types";
 import type { Metadata } from "next";
@@ -52,6 +53,11 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
 
   const store = typedProduct.store;
   const hasAr = typedProduct.media.model3d?.glbUrl || typedProduct.media.model3d?.usdzUrl;
+  const isArVerified = typedProduct.dimensions.arVerified === true;
+  const packageDimensions = typedProduct.dimensions.packageDimensions;
+  const hasPackageDimensions = Boolean(
+    packageDimensions?.widthCm && packageDimensions?.heightCm && packageDimensions?.depthCm
+  );
 
   // Variante default
   const defaultVariant = typedProduct.variants.find(v => v.isDefault) || typedProduct.variants[0];
@@ -226,6 +232,21 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                 </div>
               </div>
 
+              {hasPackageDimensions && packageDimensions && (
+                <div className="mt-4">
+                  <PackageARPreview
+                    productId={typedProduct.id}
+                    storeId={store?.id}
+                    productName={typedProduct.name}
+                    widthCm={packageDimensions.widthCm}
+                    heightCm={packageDimensions.heightCm}
+                    depthCm={packageDimensions.depthCm}
+                    weightKg={packageDimensions.weightKg}
+                    piecesCount={typedProduct.logistics.packaging?.piecesCount}
+                  />
+                </div>
+              )}
+
               {/* Short Description */}
               {typedProduct.description && (
                 <p className="mt-4 text-[var(--gray-600)] text-sm leading-relaxed">
@@ -285,6 +306,7 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                     widthCm={typedProduct.dimensions.widthCm}
                     depthCm={typedProduct.dimensions.depthCm}
                     heightCm={typedProduct.dimensions.heightCm}
+                    isVerified={isArVerified}
                   />
                 )}
 
@@ -499,6 +521,7 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
           arUrl: typedProduct.media.model3d?.glbUrl,
           glbUrl: typedProduct.media.model3d?.glbUrl,
           usdzUrl: typedProduct.media.model3d?.usdzUrl,
+          isVerified: isArVerified,
         } : undefined}
         disabled={false}
       />

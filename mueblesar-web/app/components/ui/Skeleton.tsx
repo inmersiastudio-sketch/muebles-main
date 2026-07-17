@@ -41,9 +41,6 @@ export function ProductCardSkeleton() {
           <Skeleton className="h-3 w-12" />
         </div>
         
-        {/* Cuotas */}
-        <Skeleton className="h-3 w-32" />
-        
         {/* Envío */}
         <Skeleton className="h-3 w-24" />
         

@@ -10,6 +10,7 @@ import { ProductInfoTabs } from "@/app/components/products/ProductInfoTabs";
 import { StickyAddToCart } from "@/app/components/products/StickyAddToCart";
 import { Button } from "@/app/components/ui/Button";
 import { WhatsappInquiryButton } from "@/app/components/inquiry/WhatsappInquiryButton";
+import { PackageARPreview } from "@/app/components/products/PackageARPreview";
 
 interface Props {
     params: Promise<{ slug: string; productSlug: string }>;
@@ -130,9 +131,9 @@ export default async function CatalogProductPage({ params }: Props) {
                                                     d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2-1m2 1l-2 1m2-1v10l-2 1m-10-11l2-1m-2 1l2 1m-2-1v10l2 1m10-11l-2-1m-6-3l-2 1m2-1l2 1"
                                                 />
                                             </svg>
-                                            AR disponible
-                                            {productData.widthCm && (
-                                                <span className="text-slate-400">· Escala real</span>
+                                            {productData.arVerified ? "AR disponible" : "Modelo 3D disponible"}
+                                            {productData.arVerified && (
+                                                <span className="text-slate-400">· Escala verificada</span>
                                             )}
                                         </span>
                                     )}
@@ -153,6 +154,19 @@ export default async function CatalogProductPage({ params }: Props) {
                                 </p>
                               </div>
                             </div>
+
+                            {productData.packageWidthCm && productData.packageHeightCm && productData.packageDepthCm && (
+                              <PackageARPreview
+                                productId={productData.id}
+                                storeId={store.id}
+                                productName={productData.name}
+                                widthCm={productData.packageWidthCm}
+                                heightCm={productData.packageHeightCm}
+                                depthCm={productData.packageDepthCm}
+                                weightKg={productData.packageWeightKg}
+                                piecesCount={productData.packagePiecesCount}
+                              />
+                            )}
 
                             {/* Product Details Tabs */}
                             <ProductInfoTabs
@@ -192,10 +206,12 @@ export default async function CatalogProductPage({ params }: Props) {
                                         glbUrl={productData.glbUrl ?? undefined}
                                         usdzUrl={usdzUrl ?? undefined}
                                         productId={productData.id}
+                                        storeId={store.id}
                                         productName={productData.name}
                                         widthCm={productData.widthCm ?? undefined}
                                         depthCm={productData.depthCm ?? undefined}
                                         heightCm={productData.heightCm ?? undefined}
+                                        isVerified={productData.arVerified === true}
                                     />
                                 ) : (
                                     <Button variant="outline" size="lg" disabled className="w-full">
@@ -271,6 +287,7 @@ export default async function CatalogProductPage({ params }: Props) {
                     widthCm: productData.widthCm ?? undefined,
                     depthCm: productData.depthCm ?? undefined,
                     heightCm: productData.heightCm ?? undefined,
+                    isVerified: productData.arVerified === true,
                 } : undefined}
                 disabled={!productData.inStock}
             />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fetchProducts, fetchStores } from "@/app/lib/api";
 import type { ProductListItem, Store } from "@/types";
+import { ImageWithFallback } from "./ImageWithFallback";
 
 // Simplified types for the search results
 type SearchResult = {
@@ -117,7 +118,7 @@ export function SearchBar() {
                     >
                       <div className="h-10 w-10 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
                         {product.imageUrl ? (
-                           <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                           <ImageWithFallback src={product.imageUrl} alt="" className="h-full w-full object-cover" />
                         ) : (
                            <div className="h-full w-full flex items-center justify-center text-gray-400">
                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>

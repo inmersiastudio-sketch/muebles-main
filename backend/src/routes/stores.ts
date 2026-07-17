@@ -27,9 +27,10 @@ router.get("/", asyncHandler(async (req, res) => {
     }
 
     const whereClause = matchingIds !== undefined
-      ? { id: { in: matchingIds } }
+      ? { id: { in: matchingIds }, isActive: true }
       : search
         ? {
+          isActive: true,
           OR: [
             { name: { contains: search, mode: "insensitive" as const } },
             { description: { contains: search, mode: "insensitive" as const } },
@@ -37,14 +38,14 @@ router.get("/", asyncHandler(async (req, res) => {
             { slug: { contains: search, mode: "insensitive" as const } },
           ],
         }
-        : undefined;
+        : { isActive: true };
 
     const items = await prisma.store.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
       include: {
         _count: {
-          select: { products: true }
+          select: { products: { where: { isActive: true } } }
         }
       }
     });
@@ -58,16 +59,55 @@ router.get("/:slug", asyncHandler(async (req, res) => {
       where: { slug: req.params.slug },
       include: {
         products: {
+          where: { isActive: true },
           orderBy: { createdAt: "desc" },
-          include: { media: true },
+          include: {
+            media: true,
+            variants: {
+              where: { isDefault: true },
+              take: 1,
+              include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
+            },
+            pricing: true,
+            inventory: true,
+          },
         },
       },
     });
 
-    if (!store) {
+    if (!store || !store.isActive) {
       return res.status(404).json({ error: "Store not found" });
     }
-    return res.json({ store, products: store.products });
+
+    const products = store.products.map((product) => {
+      const defaultVariant = product.variants[0];
+      const primaryImage = product.media.find((media) => media.type === "IMAGE" && media.isPrimary)?.url
+        || product.media.find((media) => media.type === "IMAGE")?.url;
+      const glbUrl = product.media.find((media) => media.type === "MODEL_3D" && media.mediaFormat === "GLB")?.url ?? null;
+      const usdzUrl = product.media.find((media) => media.type === "MODEL_3D" && media.mediaFormat === "USDZ")?.url ?? null;
+
+      return {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        category: product.category ?? "",
+        room: product.room,
+        price: Number(defaultVariant?.salePrice ?? product.pricing?.salePrice ?? 0),
+        originalPrice: Number(defaultVariant?.listPrice ?? product.pricing?.listPrice ?? 0),
+        currency: defaultVariant?.currency ?? product.pricing?.currency ?? "ARS",
+        imageUrl: defaultVariant?.images[0]?.url ?? primaryImage,
+        inStock: (product.inventory?.availableStock ?? 0) > 0,
+        glbUrl,
+        usdzUrl,
+        hasAr: Boolean(glbUrl || usdzUrl),
+      };
+    });
+
+    const { products: _products, ...publicStore } = store;
+    return res.json({
+      store: { ...publicStore, _count: { products: products.length } },
+      products,
+    });
   })
 );
 

@@ -10,6 +10,7 @@
     "lint": "echo \"add eslint later\"",
     "prisma:generate": "prisma generate",
     "db:seed": "prisma db seed",
+    "db:seed:pilot": "tsx scripts/seed-pilot.ts",
     "validate:glb-scale": "tsx scripts/validate-glb-scale.ts"
   },
   "engines": {

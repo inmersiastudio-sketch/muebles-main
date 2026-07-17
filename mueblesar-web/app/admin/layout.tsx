@@ -71,7 +71,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     return;
                 }
                 const data = await res.json();
-                const nextUser = (data as { user?: SessionUser }).user ?? (data as SessionUser | null);
+                const nextUser = data && typeof data === "object" && "user" in data ? data.user : null;
                 setUser(nextUser);
             } catch {
                 setUser(null);

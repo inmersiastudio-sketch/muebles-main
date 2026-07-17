@@ -55,6 +55,7 @@ export interface ProductDimensions {
   depthCm: number;
   weightKg: number;
   volumeM3: number;
+  arVerified?: boolean;
   packageDimensions?: {
     widthCm: number;
     heightCm: number;
@@ -301,6 +302,12 @@ export interface CatalogProduct {
   discountPercentage?: number;
   shippingCost?: number | null;
   isFreeShipping?: boolean;
+  arVerified?: boolean;
+  packageWidthCm?: number | null;
+  packageHeightCm?: number | null;
+  packageDepthCm?: number | null;
+  packageWeightKg?: number | null;
+  packagePiecesCount?: number;
 }
 
 export interface CatalogPagination {
@@ -393,7 +400,7 @@ export interface CatalogFilters {
   priceMin?: number;
   priceMax?: number;
   arOnly?: boolean;
-  sort?: "price" | "createdAt";
+  sort?: "price" | "createdAt" | "name";
   direction?: "asc" | "desc";
   page?: number;
   pageSize?: number;

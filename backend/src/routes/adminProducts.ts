@@ -47,6 +47,7 @@ const ProductMediaSchema = z.object({
 
 const CreateProductSchema = z.object({
     // Core
+    storeId: z.number().int().positive().optional(),
     sku: z.string().min(1),
     name: z.string().min(1).max(200),
     description: z.string().optional(),
@@ -234,7 +235,8 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
         const data = CreateProductSchema.parse(req.body);
 
         // 2. Obtener store del usuario autenticado (middleware de auth)
-        const storeId = (req as any).user?.storeId;
+        const user = (req as any).user;
+        const storeId = user?.role === UserRole.SUPER_ADMIN ? data.storeId : user?.storeId;
         if (!storeId) {
             return res.status(403).json({ error: 'No tienes una tienda asociada' });
         }
@@ -709,11 +711,13 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
         const data = UpdateProductSchema.parse(req.body);
 
         // Verificar que el producto existe y pertenece al usuario
-        const storeId = (req as any).user?.storeId;
+        const user = (req as any).user;
+        const storeId = user?.storeId;
+        const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
         const existingProduct = await prisma.product.findFirst({
             where: {
                 id: productId,
-                storeId,
+                ...(isSuperAdmin ? {} : { storeId }),
             },
             include: {
                 variants: true,
@@ -992,13 +996,15 @@ router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
  */
 router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
         const productId = parseInt(req.params.id);
-        const storeId = (req as any).user?.storeId;
+        const user = (req as any).user;
+        const storeId = user?.storeId;
+        const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
 
         // Verificar ownership
         const product = await prisma.product.findFirst({
             where: {
                 id: productId,
-                storeId,
+                ...(isSuperAdmin ? {} : { storeId }),
             },
         });
 
@@ -1026,8 +1032,10 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
  * Listado de productos para el admin (con filtros de tienda)
  */
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-        const storeId = (req as any).user?.storeId;
-        if (!storeId) {
+        const user = (req as any).user;
+        const storeId = user?.storeId;
+        const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
+        if (!storeId && !isSuperAdmin) {
             return res.status(403).json({ error: 'No autorizado' });
         }
 
@@ -1036,7 +1044,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         const limit = limitQuery === 'all' ? 10000 : (parseInt(limitQuery) || 20);
         const search = req.query.search as string;
 
-        const where: any = { storeId, isActive: true };
+        const where: any = { ...(isSuperAdmin ? {} : { storeId }), isActive: true };
 
         if (search) {
             where.OR = [
@@ -1065,6 +1073,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
                         select: {
                             salePrice: true,
                             listPrice: true,
+                            shippingCost: true,
                         },
                     },
                     inventory: {

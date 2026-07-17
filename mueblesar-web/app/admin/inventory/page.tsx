@@ -257,7 +257,7 @@ function InventoryPageContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/admin/products`, { credentials: "include" });
+      const res = await fetch(`${apiBase}/api/admin/products?limit=all`, { credentials: "include" });
       const data = await res.json().catch(() => ({ items: [] }));
       if (!res.ok) { setError((data as any)?.error || `Error ${res.status}`); return; }
       setProducts(data?.items || []);
@@ -313,13 +313,13 @@ function InventoryPageContent() {
   };
 
   const validate = async (product: AdminProductListItem) => {
-    if (!product.arUrl) { setValidation((p) => ({ ...p, [product.id]: { error: "Sin arUrl" } })); return; }
+    if (!product.glbUrl) { setValidation((p) => ({ ...p, [product.id]: { error: "Sin modelo GLB" } })); return; }
     setValidation((p) => ({ ...p, [product.id]: { error: "Validando..." } }));
     try {
       const tol = Number(settings.tolerance ?? "0.05") || 0.05;
       const res = await fetch(`${apiBase}/api/ar/validate-scale?tolerance=${tol}`, {
         method: "POST", headers: { "content-type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ file: product.arUrl, widthCm: product.widthCm, depthCm: product.depthCm, heightCm: product.heightCm }),
+        body: JSON.stringify({ productId: product.id }),
       });
       const data = await res.json();
       setValidation((p) => ({ ...p, [product.id]: res.ok ? data : { error: data?.error || `Error ${res.status}` } }));
@@ -411,6 +411,7 @@ function InventoryPageContent() {
       packageHeightCm: pkgDims.heightCm ? String(pkgDims.heightCm) : "",
       packageDepthCm: pkgDims.depthCm ? String(pkgDims.depthCm) : "",
       packageWeightKg: pkgDims.weightKg ? String(pkgDims.weightKg) : "",
+      shipsPackaged: Boolean(pkgDims.widthCm && pkgDims.heightCm && pkgDims.depthCm),
       deliveryMinDays: delDays.min ? String(delDays.min) : "2",
       deliveryMaxDays: delDays.max ? String(delDays.max) : "7",
       deliveryType: logs.deliveryType || "home",
@@ -492,6 +493,11 @@ function InventoryPageContent() {
     if (form.glbUrl && !isValidUrl(form.glbUrl)) errors.glbUrl = "URL inválida";
     if (form.usdzUrl && !isValidUrl(form.usdzUrl)) errors.usdzUrl = "URL inválida";
     if (form.imageUrl && !isValidUrl(form.imageUrl)) errors.imageUrl = "URL inválida";
+    if (form.shipsPackaged) {
+      if (!(Number(form.packageWidthCm) > 0)) errors.packageWidthCm = "Requerido";
+      if (!(Number(form.packageHeightCm) > 0)) errors.packageHeightCm = "Requerido";
+      if (!(Number(form.packageDepthCm) > 0)) errors.packageDepthCm = "Requerido";
+    }
     setFormErrors(errors);
     if (Object.keys(errors).length) return;
 
@@ -521,7 +527,7 @@ function InventoryPageContent() {
         const pd = Number(form.packageDepthCm);
         const pwt = Number(form.packageWeightKg);
 
-        if (pw || ph || pd || pwt) {
+        if (form.shipsPackaged && pw && ph && pd) {
           dimensions.packageDimensions = {
             ...(originalDimensions.packageDimensions || {}),
             widthCm: pw || 0,
@@ -529,6 +535,8 @@ function InventoryPageContent() {
             depthCm: pd || 0,
             weightKg: pwt || 10,
           };
+        } else if (!form.shipsPackaged) {
+          delete dimensions.packageDimensions;
         }
       }
 
@@ -559,10 +567,12 @@ function InventoryPageContent() {
       };
 
       const payload = {
-        storeId: Number(form.storeId), name: form.name, slug: form.slug,
+        storeId: Number(form.storeId),
+        sku: variants.find((variant) => variant.isDefault)?.sku || variants[0]?.sku,
+        name: form.name, slug: form.slug,
         description: form.description || undefined, category: form.category || undefined,
         room: form.room || undefined, style: form.style || undefined, color: form.color || undefined,
-        featured: form.featured, price: Number(form.price),
+        featured: form.featured, isFeatured: form.featured, price: Number(form.price),
         arUrl: form.arUrl || undefined, glbUrl: form.glbUrl || undefined, usdzUrl: form.usdzUrl || undefined,
         imageUrl: form.imageUrl || undefined,
         dimensions: dimensions || undefined,
@@ -1356,7 +1366,19 @@ function InventoryPageContent() {
               {/* Packaging Dimensions */}
               <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/30 space-y-3">
                 <p className="text-xs font-bold text-slate-800 border-b border-slate-100 pb-1.5">Dimensiones de Embalaje (Caja)</p>
-                <div className="grid grid-cols-4 gap-2">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={form.shipsPackaged}
+                    onChange={(event) => setForm((current) => ({ ...current, shipsPackaged: event.target.checked }))}
+                    className="h-4 w-4 rounded accent-[#0058a3]"
+                  />
+                  Se entrega en caja o embalaje rígido
+                </label>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Completá las tres medidas para habilitar una caja 3D a escala real y permitir que el cliente compruebe accesos en AR.
+                </p>
+                {form.shipsPackaged && <><div className="grid grid-cols-4 gap-2">
                   {F("Ancho", "packageWidthCm", { type: "number" })}
                   {F("Prof.", "packageDepthCm", { type: "number" })}
                   {F("Alto", "packageHeightCm", { type: "number" })}
@@ -1371,6 +1393,7 @@ function InventoryPageContent() {
                     <label htmlFor="specialHandling" className="text-xs font-semibold text-slate-700 cursor-pointer">Cuidado Especial</label>
                   </div>
                 </div>
+                </>}
               </div>
 
               {/* Logistics & Delivery */}

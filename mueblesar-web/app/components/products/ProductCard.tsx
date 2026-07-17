@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, Box, Truck, Cuboid } from "lucide-react";
+import { Box, Cuboid } from "lucide-react";
 import { FavoriteButton } from "../favorites/FavoriteButton";
 import type { ProductListItem } from "@/types";
+import { ImageWithFallback } from "../ui/ImageWithFallback";
 
 type Props = {
   product: ProductListItem;
@@ -13,8 +14,6 @@ export function ProductCard({ product }: Props) {
   const hasDiscount = product.hasDiscount && product.discountPercentage && product.discountPercentage > 0;
   const hasAR = product.hasAr || Boolean(product.glbUrl || product.usdzUrl);
 
-  const installmentPrice = Math.round(product.price / 3);
-
   return (
     <article className="group relative flex flex-col bg-transparent overflow-hidden transition-all duration-300">
       {/* Image Container */}
@@ -22,11 +21,10 @@ export function ProductCard({ product }: Props) {
         <Link href={`/productos/${product.slug}`} className="block w-full h-full">
           {product.imageUrl ? (
             <>
-              <img
+              <ImageWithFallback
                 src={product.imageUrl}
                 alt={product.name}
                 loading="lazy"
-                decoding="async"
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-102"
               />
               <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -92,10 +90,6 @@ export function ProductCard({ product }: Props) {
           </span>
         </div>
 
-        {/* Installments Box */}
-        <div className="mt-2.5 border border-[#e1e6e3] bg-white px-3 py-1.5 text-[9px] sm:text-[10px] font-medium text-[#1c2421] tracking-wide text-center">
-          <strong className="font-bold">3</strong> cuotas sin interés de <strong className="font-bold">${installmentPrice.toLocaleString("es-AR")}</strong>
-        </div>
       </div>
     </article>
   );

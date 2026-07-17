@@ -19,6 +19,7 @@ export function PriceRangeSlider({
 }: PriceRangeSliderProps) {
   const [localValue, setLocalValue] = useState(value);
   const [isDragging, setIsDragging] = useState<"min" | "max" | null>(null);
+  const hasUsableRange = Number.isFinite(min) && Number.isFinite(max) && max > min;
 
   useEffect(() => {
     setLocalValue(value);
@@ -26,25 +27,32 @@ export function PriceRangeSlider({
 
   const handleMinChange = useCallback(
     (newMin: number) => {
-      const clampedMin = Math.max(min, Math.min(newMin, localValue[1] - step));
+      if (!Number.isFinite(newMin) || !hasUsableRange) return;
+      const effectiveStep = Math.min(step, max - min);
+      const clampedMin = Math.max(min, Math.min(newMin, localValue[1] - effectiveStep));
       const newValue: [number, number] = [clampedMin, localValue[1]];
       setLocalValue(newValue);
       onChange(newValue);
     },
-    [localValue, min, step, onChange]
+    [hasUsableRange, localValue, max, min, step, onChange]
   );
 
   const handleMaxChange = useCallback(
     (newMax: number) => {
-      const clampedMax = Math.min(max, Math.max(newMax, localValue[0] + step));
+      if (!Number.isFinite(newMax) || !hasUsableRange) return;
+      const effectiveStep = Math.min(step, max - min);
+      const clampedMax = Math.min(max, Math.max(newMax, localValue[0] + effectiveStep));
       const newValue: [number, number] = [localValue[0], clampedMax];
       setLocalValue(newValue);
       onChange(newValue);
     },
-    [localValue, max, step, onChange]
+    [hasUsableRange, localValue, max, min, step, onChange]
   );
 
-  const percentage = (val: number) => ((val - min) / (max - min)) * 100;
+  const percentage = (val: number) => {
+    if (!hasUsableRange || !Number.isFinite(val)) return 0;
+    return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+  };
 
   const formatPrice = (val: number) => {
     return new Intl.NumberFormat("es-AR", {
@@ -57,8 +65,8 @@ export function PriceRangeSlider({
   return (
     <div className="py-4">
       {/* Price inputs */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1">
+      <div className="flex min-w-0 items-center gap-3 mb-4">
+        <div className="min-w-0 flex-1">
           <label className="text-xs text-[var(--gray-500)] mb-1 block">Mínimo</label>
           <input
             type="number"
@@ -68,10 +76,12 @@ export function PriceRangeSlider({
             min={min}
             max={max}
             step={step}
+            disabled={!hasUsableRange}
+            aria-label="Precio mínimo"
           />
         </div>
         <span className="text-[var(--gray-400)] pt-5">—</span>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <label className="text-xs text-[var(--gray-500)] mb-1 block">Máximo</label>
           <input
             type="number"
@@ -81,6 +91,8 @@ export function PriceRangeSlider({
             min={min}
             max={max}
             step={step}
+            disabled={!hasUsableRange}
+            aria-label="Precio máximo"
           />
         </div>
       </div>
@@ -108,6 +120,7 @@ export function PriceRangeSlider({
           onMouseUp={() => setIsDragging(null)}
           onTouchStart={() => setIsDragging("min")}
           onTouchEnd={() => setIsDragging(null)}
+          disabled={!hasUsableRange}
           className="absolute w-full h-full opacity-0 cursor-pointer z-20"
           style={{ pointerEvents: "none" }}
         />
@@ -130,6 +143,7 @@ export function PriceRangeSlider({
           onMouseUp={() => setIsDragging(null)}
           onTouchStart={() => setIsDragging("max")}
           onTouchEnd={() => setIsDragging(null)}
+          disabled={!hasUsableRange}
           className="absolute w-full h-full opacity-0 cursor-pointer z-20"
           style={{ pointerEvents: "none" }}
         />

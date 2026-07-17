@@ -80,15 +80,21 @@ router.get("/", async (req, res) => {
       };
     });
 
-    const lowStock = await prisma.product.findMany({
+    const lowStockCandidates = await prisma.product.findMany({
       where: {
         ...(storeFilter.storeId ? { storeId: storeFilter.storeId } : {}),
-        inventory: { availableStock: { lte: 3 } },
+        isActive: true,
+        inventory: { isNot: null },
       },
       orderBy: { inventory: { availableStock: "asc" } },
-      take: 5,
       include: { store: true, inventory: true },
     });
+    const lowStock = lowStockCandidates
+      .filter((product) => {
+        const inventory = product.inventory;
+        return inventory !== null && inventory.availableStock <= inventory.lowStockAlert;
+      })
+      .slice(0, 5);
 
     res.json({
       totalSales,

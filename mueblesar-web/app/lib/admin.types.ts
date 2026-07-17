@@ -75,6 +75,7 @@ export type FormState = {
   packageHeightCm: string;
   packageDepthCm: string;
   packageWeightKg: string;
+  shipsPackaged: boolean;
 
   // Tiempos de entrega
   deliveryMinDays: string;
@@ -123,6 +124,7 @@ export const emptyForm: FormState = {
   packageHeightCm: "",
   packageDepthCm: "",
   packageWeightKg: "",
+  shipsPackaged: false,
   deliveryMinDays: "2",
   deliveryMaxDays: "7",
   deliveryType: "home",

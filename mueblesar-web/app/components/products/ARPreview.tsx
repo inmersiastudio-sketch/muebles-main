@@ -20,6 +20,9 @@ interface ARPreviewProps {
   depthCm?: number | null;
   heightCm?: number | null;
   variant?: "default" | "compact";
+  isVerified?: boolean;
+  buttonLabel?: string;
+  useProductShortLink?: boolean;
 }
 
 type Vec3 = { x: number; y: number; z: number };
@@ -35,6 +38,9 @@ export function ARPreview({
   depthCm,
   heightCm,
   variant = "default",
+  isVerified = false,
+  buttonLabel,
+  useProductShortLink = true,
 }: ARPreviewProps) {
   const [open, setOpen] = useState(false);
   const [origin, setOrigin] = useState<string>("");
@@ -97,11 +103,12 @@ export function ARPreview({
       url.pathname = "/ar";
       url.searchParams.set("glb", glbUrlOriginal || "");
       url.searchParams.set("title", productName);
+      url.searchParams.set("verified", isVerified ? "true" : "false");
       return url.toString();
     } catch {
       return "";
     }
-  }, [siteBase, glbUrlOriginal, productName]);
+  }, [siteBase, glbUrlOriginal, productName, isVerified]);
 
   const qrUnified = useMemo(() => {
     const isLocalhost =
@@ -111,13 +118,13 @@ export function ARPreview({
       return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(redirectUrl || "")}`;
     }
 
-    if (productId && apiBase) {
+    if (useProductShortLink && productId && apiBase) {
       const shortUrl = `${apiBase}/api/short/ar/${productId}`;
       return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(shortUrl)}`;
     }
 
     return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(redirectUrl || "")}`;
-  }, [productId, apiBase, siteBase, redirectUrl]);
+  }, [productId, apiBase, siteBase, redirectUrl, useProductShortLink]);
 
   // Load model-viewer script
   useEffect(() => {
@@ -326,7 +333,7 @@ export function ARPreview({
             track("ar_click", { hasGlb: Boolean(glbUrlOriginal) });
             setOpen(true);
           }}
-          title="Ver en AR (Móvil/3D)"
+          title={isVerified ? "Ver en AR" : "Ver modelo 3D"}
         >
           <Box className="w-3.5 h-3.5" />
         </button>
@@ -339,7 +346,7 @@ export function ARPreview({
           }}
         >
           <Box className="w-5 h-5" />
-          Ver en mi casa (AR)
+          {buttonLabel || (isVerified ? "Ver en mi casa (AR)" : "Ver modelo 3D")}
         </button>
       )}
 
@@ -361,8 +368,9 @@ export function ARPreview({
                   ref={modelRef}
                   src={glbUrl}
                   alt={productName}
-                  ar
-                  ar-modes="webxr scene-viewer quick-look"
+                  ar={isVerified || undefined}
+                  ar-modes={isVerified ? "webxr scene-viewer quick-look" : undefined}
+                  ar-scale="fixed"
                   ar-hit-test
                   camera-controls
                   auto-rotate
@@ -378,7 +386,7 @@ export function ARPreview({
               </div>
 
               <div className="space-y-3 md:space-y-4">
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 md:p-4 text-center">
+                {isVerified ? <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 md:p-4 text-center">
                   <div className="mb-2 md:mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
                     <QrCode size={16} /> Escaneá para abrir AR
                   </div>
@@ -392,9 +400,13 @@ export function ARPreview({
                   <p className="pt-2 md:pt-3 text-xs text-slate-600">
                     El código abre una página unificada: iPhone genera Quick Look desde el GLB y Android usa WebXR o Scene Viewer.
                   </p>
-                </div>
+                </div> : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-900">
+                    <strong>Vista 3D orientativa.</strong> La escala física todavía no fue verificada, por eso la proyección AR está deshabilitada.
+                  </div>
+                )}
 
-                <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-3 md:p-4">
+                {isVerified && <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-3 md:p-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                     <Smartphone size={16} /> Abrir en este dispositivo
                   </div>
@@ -409,9 +421,9 @@ export function ARPreview({
                   <p className="text-xs text-slate-600">
                     La experiencia usa el GLB vigente y evita abrir archivos USDZ desactualizados.
                   </p>
-                </div>
+                </div>}
 
-                {isMobile && (
+                {isVerified && isMobile && (
                   <div className="space-y-2 rounded-xl border border-amber-100 bg-amber-50 p-3 md:p-4">
                     <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
                       <Ruler size={16} /> Medir en AR (beta)
@@ -476,8 +488,7 @@ export function ARPreview({
                     </div>
                     <p className="text-xs text-slate-600">
                       En iPhone, mide tu espacio con la app Regla y compáralo con estas dimensiones. En Android, podés
-                      usar el modo Medir para ubicar dos puntos en el plano. El modelo está a escala real según estas
-                      medidas.
+                      usar el modo Medir para ubicar dos puntos en el plano cuando el modelo esté verificado.
                     </p>
                   </div>
                 )}

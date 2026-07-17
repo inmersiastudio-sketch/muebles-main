@@ -88,7 +88,7 @@ export default async function CatalogPage({ params, searchParams }: Props) {
     priceMax: paramsAwaited.priceMax ? Number(paramsAwaited.priceMax) : undefined,
     page: paramsAwaited.page ? Number(paramsAwaited.page) : 1,
     pageSize: paramsAwaited.pageSize ? Number(paramsAwaited.pageSize) : 12,
-    sort: paramsAwaited.sort === "price" ? "price" : "createdAt",
+    sort: paramsAwaited.sort === "price" || paramsAwaited.sort === "name" ? paramsAwaited.sort : "createdAt",
     direction: paramsAwaited.direction === "asc" ? "asc" : "desc",
     arOnly: paramsAwaited.arOnly === "true",
   };
@@ -254,6 +254,7 @@ export default async function CatalogPage({ params, searchParams }: Props) {
             currentRoom={paramsAwaited.room}
             currentSort={paramsAwaited.sort}
             currentDirection={paramsAwaited.direction}
+            currentArOnly={paramsAwaited.arOnly === "true"}
           />
 
           {/* Products Grid */}

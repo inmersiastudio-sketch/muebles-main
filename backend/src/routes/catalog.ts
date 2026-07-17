@@ -22,7 +22,7 @@ router.get("/:slug", asyncHandler(async (req, res) => {
       priceMin: req.query.priceMin ? Number(req.query.priceMin) : undefined,
       priceMax: req.query.priceMax ? Number(req.query.priceMax) : undefined,
       arOnly: req.query.arOnly === 'true',
-      sort: (req.query.sort as 'price' | 'createdAt') || 'createdAt',
+      sort: (req.query.sort as 'price' | 'createdAt' | 'name') || 'createdAt',
       direction: (req.query.direction as 'asc' | 'desc') || 'desc',
     };
 
