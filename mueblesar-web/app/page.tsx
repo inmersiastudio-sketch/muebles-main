@@ -13,7 +13,7 @@ const featuredRooms = [
   { label: "Living", href: "/productos?room=living", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=600" },
   { label: "Comedor", href: "/productos?room=comedor", image: "https://images.unsplash.com/photo-1617104551722-3b2d51366400?auto=format&fit=crop&q=80&w=600" },
   { label: "Dormitorio", href: "/productos?room=dormitorio", image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&q=80&w=600" },
-  { label: "Cocina", href: "/productos?room=cocina", image: "https://images.unsplash.com/photo-1556911220-bda9f7f7597e?auto=format&fit=crop&q=80&w=600" },
+  { label: "Cocina", href: "/productos?room=cocina", image: "https://images.unsplash.com/photo-1556912173-3bb406ef7e77?auto=format&fit=crop&q=80&w=600" },
 ];
 
 async function getProducts() {
@@ -39,7 +39,7 @@ async function ProductsSection() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
       {products.slice(0, 8).map((product: ProductListItem) => (
         <ProductCard key={product.id} product={product} />
       ))}
@@ -64,7 +64,7 @@ export default function Home() {
           }),
         }}
       />
-      <div className="min-h-screen bg-[var(--gray-100)] pb-8 sm:pb-12">
+      <div className="min-h-screen bg-[#f9fafb] pb-12 sm:pb-16">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-[#1c2925] border-b border-[#e1e6e3]/10">
         {/* Decorative Radial Gradients */}
@@ -173,33 +173,36 @@ export default function Home() {
       </section>
 
       {/* Rooms Section */}
-      <section className="mt-4 sm:mt-6">
+      <section className="mt-6 sm:mt-10">
         <Container>
-          <div className="rounded-xl border border-[var(--gray-200)] bg-white p-3 shadow-sm sm:p-5">
-            <div className="mb-3 flex items-center justify-between sm:mb-4">
-              <h2 className="text-sm font-semibold text-[var(--gray-900)] sm:text-lg">Explorá por ambientes</h2>
-              <Link href="/productos" className="text-xs font-medium text-[var(--primary-600)] hover:underline sm:text-sm">
+          <div className="rounded-2xl border border-[var(--gray-200)] bg-white p-4 shadow-sm sm:p-6 transition-all duration-300">
+            <div className="mb-4 flex items-end justify-between sm:mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--gray-900)] sm:text-2xl">Explorá por ambientes</h2>
+                <p className="text-xs text-[var(--gray-500)] mt-1">Encontrá el mueble perfecto para cada rincón de tu casa</p>
+              </div>
+              <Link href="/productos" className="text-xs font-semibold text-[var(--primary-600)] hover:text-[#075247] hover:underline sm:text-sm">
                 Ver todos
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
               {featuredRooms.map((room) => (
                 <Link
                   key={room.href}
                   href={room.href}
-                  className="group overflow-hidden rounded-lg border border-[var(--gray-200)]"
+                  className="group overflow-hidden rounded-xl border border-[var(--gray-200)]/80 shadow-sm"
                 >
                   <div className="relative aspect-[16/10]">
                     <img
                       src={room.image}
                       alt={room.label}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
                       decoding="async"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <span className="absolute bottom-2 left-2 text-xs font-semibold text-white sm:bottom-3 sm:left-3 sm:text-sm">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
+                    <span className="absolute bottom-3 left-3 text-xs font-bold text-white tracking-wide sm:bottom-4 sm:left-4 sm:text-sm">
                       {room.label}
                     </span>
                   </div>
@@ -211,14 +214,17 @@ export default function Home() {
       </section>
 
       {/* Products Section with Suspense */}
-      <section className="mt-4 sm:mt-6">
+      <section className="mt-6 sm:mt-10">
         <Container>
-          <div className="rounded-xl border border-[var(--gray-200)] bg-white p-3 shadow-sm sm:p-5">
-            <div className="mb-3 flex items-center justify-between border-b border-[var(--gray-200)] pb-3 sm:mb-4 sm:pb-4">
-              <h2 className="text-base font-semibold text-[var(--gray-900)] sm:text-xl">Productos destacados</h2>
+          <div className="rounded-2xl border border-[var(--gray-200)] bg-white p-4 shadow-sm sm:p-6 transition-all duration-300">
+            <div className="mb-4 flex items-end justify-between sm:mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--gray-900)] sm:text-2xl">Productos destacados</h2>
+                <p className="text-xs text-[var(--gray-500)] mt-1">Nuestra selección de piezas exclusivas para vos</p>
+              </div>
               <Link
                 href="/productos"
-                className="text-xs font-medium text-[var(--primary-600)] hover:underline sm:text-sm"
+                className="text-xs font-semibold text-[var(--primary-600)] hover:text-[#075247] hover:underline sm:text-sm"
               >
                 Ver más
               </Link>
