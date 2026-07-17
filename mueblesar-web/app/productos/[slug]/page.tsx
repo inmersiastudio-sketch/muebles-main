@@ -58,6 +58,11 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
   const hasPackageDimensions = Boolean(
     packageDimensions?.widthCm && packageDimensions?.heightCm && packageDimensions?.depthCm
   );
+  const deliveryTime = typedProduct.logistics?.deliveryTimeDays;
+  const hasDeliveryEstimate = Boolean(
+    (deliveryTime?.min ?? 0) > 0 || (deliveryTime?.max ?? 0) > 0
+  );
+  const includesAssembly = typedProduct.logistics?.assembly?.included === true;
 
   // Variante default
   const defaultVariant = typedProduct.variants.find(v => v.isDefault) || typedProduct.variants[0];
@@ -354,15 +359,15 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-[var(--gray-900)]">
-                    {typedProduct.logistics.deliveryTimeDays.min > 0 || typedProduct.logistics.deliveryTimeDays.max > 0
-                      ? `${typedProduct.logistics.deliveryTimeDays.min}-${typedProduct.logistics.deliveryTimeDays.max}`
+                    {hasDeliveryEstimate
+                      ? `${deliveryTime?.min}-${deliveryTime?.max}`
                       : "A confirmar"}
                   </p>
                   <p className="text-xs text-[var(--gray-500)]">entrega</p>
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-[var(--gray-900)]">
-                    {typedProduct.logistics.assembly.included ? 'Sí' : 'A confirmar'}
+                    {includesAssembly ? 'Sí' : 'A confirmar'}
                   </p>
                   <p className="text-xs text-[var(--gray-500)]">armado</p>
                 </div>
@@ -447,8 +452,8 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                 <div className="flex justify-between py-2 border-b border-[var(--gray-200)]">
                   <dt className="text-sm text-[var(--gray-500)]">Entrega estimada</dt>
                   <dd className="text-sm font-medium text-[var(--gray-900)]">
-                    {typedProduct.logistics.deliveryTimeDays.min > 0 || typedProduct.logistics.deliveryTimeDays.max > 0
-                      ? `${typedProduct.logistics.deliveryTimeDays.min}-${typedProduct.logistics.deliveryTimeDays.max} días hábiles`
+                    {hasDeliveryEstimate
+                      ? `${deliveryTime?.min}-${deliveryTime?.max} días hábiles`
                       : 'A confirmar con la tienda'}
                   </dd>
                 </div>

@@ -55,6 +55,14 @@ function productTextSearch(value: string) {
  */
 function transformProductForFrontend(product: any) {
   const defaultVariant = product.variants?.find((v: any) => v.isDefault) || product.variants?.[0];
+  const materials = product.materials && typeof product.materials === 'object' ? product.materials : {};
+  const warranty = product.warranty && typeof product.warranty === 'object' ? product.warranty : {};
+  const logistics = product.logistics && typeof product.logistics === 'object' ? product.logistics : {};
+  const assembly = logistics.assembly && typeof logistics.assembly === 'object' ? logistics.assembly : {};
+  const packaging = logistics.packaging && typeof logistics.packaging === 'object' ? logistics.packaging : {};
+  const deliveryTimeDays = logistics.deliveryTimeDays && typeof logistics.deliveryTimeDays === 'object'
+    ? logistics.deliveryTimeDays
+    : {};
 
   return {
     // Identificación
@@ -120,25 +128,44 @@ function transformProductForFrontend(product: any) {
     },
 
     // Materiales
-    materials: product.materials || {
-      primary: 'No especificado',
-      finish: 'No especificado',
-      certifications: [],
+    materials: {
+      ...materials,
+      primary: materials.primary || materials.structure || 'No especificado',
+      finish: materials.finish || materials.legs || 'No especificado',
+      certifications: Array.isArray(materials.certifications) ? materials.certifications : [],
     },
 
     // Garantía
-    warranty: product.warranty || {
-      type: 'factory',
-      durationMonths: 12,
-      coverage: 'Garantía de fábrica',
-      conditions: ['Defectos de fabricación'],
+    warranty: {
+      ...warranty,
+      type: warranty.type || 'factory',
+      durationMonths: Number(warranty.durationMonths ?? warranty.months) || 0,
+      coverage: warranty.coverage || 'A confirmar con la tienda',
+      conditions: Array.isArray(warranty.conditions) ? warranty.conditions : [],
+      exclusions: Array.isArray(warranty.exclusions)
+        ? warranty.exclusions
+        : warranty.exclusions ? [warranty.exclusions] : [],
     },
 
     // Logística
-    logistics: product.logistics || {
-      deliveryTimeDays: { min: 3, max: 7 },
-      deliveryType: 'home',
-      assembly: { included: false, difficulty: 'medium' },
+    logistics: {
+      ...logistics,
+      deliveryTimeDays: {
+        min: Number(deliveryTimeDays.min) || 0,
+        max: Number(deliveryTimeDays.max) || 0,
+      },
+      deliveryType: logistics.deliveryType || 'home',
+      shippingZones: Array.isArray(logistics.shippingZones) ? logistics.shippingZones : [],
+      assembly: {
+        ...assembly,
+        included: assembly.included ?? logistics.assemblyRequired ?? false,
+        difficulty: assembly.difficulty || 'medium',
+      },
+      packaging: {
+        ...packaging,
+        piecesCount: Number(packaging.piecesCount) || 1,
+        specialHandling: packaging.specialHandling ?? false,
+      },
     },
 
     // Variantes
