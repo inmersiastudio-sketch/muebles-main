@@ -5,17 +5,17 @@
      PALETA DE COLORES AMOBLY - VERSIÓN 2024
      ============================================ */
   
-  /* Primario - Azul principal */
-  --primary-50: #eff6ff;
-  --primary-100: #dbeafe;
-  --primary-200: #bfdbfe;
-  --primary-300: #93c5fd;
-  --primary-400: #60a5fa;
-  --primary-500: #3b82f6;
-  --primary-600: #2563eb;   /* Color principal */
-  --primary-700: #1d4ed8;   /* Hover */
-  --primary-800: #1e40af;   /* Active */
-  --primary-900: #1e3a8a;
+  /* Primario - Verde esmeralda */
+  --primary-50: #edf7f3;
+  --primary-100: #d1ebd8;
+  --primary-200: #a2d7b5;
+  --primary-300: #73c392;
+  --primary-400: #44af6f;
+  --primary-500: #159b4c;
+  --primary-600: #0b6e5e;   /* Color principal - Emerald */
+  --primary-700: #075247;   /* Hover */
+  --primary-800: #053c34;   /* Active */
+  --primary-900: #1c2925;   /* Dark green */
   
   /* Éxito/Positivo - Verde */
   --success-50: #f0fdf4;
@@ -24,11 +24,11 @@
   --success-600: #16a34a;   /* Envío gratis, disponible */
   --success-700: #15803d;
   
-  /* Advertencia/Ofertas - Naranja */
-  --warning-50: #fff7ed;
-  --warning-100: #ffedd5;
-  --warning-500: #f97316;
-  --warning-600: #ea580c;   /* Ofertas, badges */
+  /* Advertencia/Ofertas - Naranja/Terracota */
+  --warning-50: #fffaf5;
+  --warning-100: #fdf0e2;
+  --warning-500: #e7a86e;   /* Terracota */
+  --warning-600: #d4944f;   /* Ofertas, badges */
   
   /* Error - Rojo */
   --error-50: #fef2f2;
