@@ -140,11 +140,11 @@ export function StoreCard({ store, variant = "default" }: StoreCardProps) {
   return (
     <Link
       href={`/catalog/${store.slug}`}
-      className="group flex flex-col rounded-xl border border-slate-200 bg-white p-5 transition-all duration-200 hover:border-slate-300 hover:shadow-md"
+      className="group flex flex-col bg-white border border-[#e1e6e3] p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:border-[#0b6e5e]/30"
     >
       <div className="flex items-start gap-4">
         {/* Logo */}
-        <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+        <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden border border-[#e1e6e3] bg-[#f5f7f6]">
           {store.logoUrl ? (
             <Image
               src={store.logoUrl}
@@ -155,7 +155,7 @@ export function StoreCard({ store, variant = "default" }: StoreCardProps) {
               sizes="64px"
             />
           ) : (
-            <span className="text-lg font-bold text-slate-500">
+            <span className="text-lg font-bold text-[#61706a]">
               {getInitials(store.name)}
             </span>
           )}
@@ -163,25 +163,25 @@ export function StoreCard({ store, variant = "default" }: StoreCardProps) {
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-slate-900 group-hover:text-slate-700">
+          <h3 className="font-bold uppercase tracking-wider text-[#1c2421] group-hover:text-[#0b6e5e] transition-colors">
             {store.name}
           </h3>
 
           {store.description && (
-            <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+            <p className="mt-1 line-clamp-2 text-xs text-[#61706a] leading-relaxed">
               {store.description}
             </p>
           )}
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#8a9690]">
             {location && (
               <span className="flex items-center gap-1">
-                <MapPin size={12} />
+                <MapPin size={12} className="text-[#0b6e5e]" />
                 {location}
               </span>
             )}
             <span className="flex items-center gap-1">
-              <Package size={12} />
+              <Package size={12} className="text-[#0b6e5e]" />
               {productCount} producto{productCount !== 1 ? "s" : ""}
             </span>
           </div>
@@ -189,16 +189,16 @@ export function StoreCard({ store, variant = "default" }: StoreCardProps) {
       </div>
 
       {/* Footer con acciones */}
-      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
-        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+      <div className="mt-5 flex items-center justify-between border-t border-[#e1e6e3]/60 pt-4">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#0b6e5e] group-hover:text-[#075247] transition-colors">
           Explorar tienda →
         </span>
         {store.socialInstagram && (
           <span
-            className="text-slate-400 hover:text-pink-600"
+            className="text-[#61706a] hover:text-[#e7a86e] transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
-            <Instagram size={18} />
+            <Instagram size={16} />
           </span>
         )}
       </div>
