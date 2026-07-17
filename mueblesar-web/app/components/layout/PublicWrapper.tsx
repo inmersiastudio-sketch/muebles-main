@@ -9,7 +9,7 @@ import { ARAnalyticsBridge } from "../analytics/ARAnalyticsBridge";
 export function PublicWrapper({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const isAdminRoute = pathname?.startsWith("/admin");
-    const isAuthRoute = pathname?.startsWith("/login") || pathname?.startsWith("/registrar") || pathname?.startsWith("/verificar-email");
+    const isAuthRoute = pathname?.startsWith("/login") || pathname?.startsWith("/registrar") || pathname?.startsWith("/verificar-email") || pathname?.startsWith("/ventas") || pathname?.startsWith("/recuperar-contrasena") || pathname?.startsWith("/resetear-contrasena");
 
     if (isAdminRoute || isAuthRoute) {
         return <main>{children}</main>;
