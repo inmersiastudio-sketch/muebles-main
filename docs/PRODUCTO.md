@@ -31,6 +31,11 @@ consulta por WhatsApp o formulario es el cierre comercial actual.
 - Automatizar stock, descuentos o ventas hasta que variantes, atributos y
   taxonomia esten completos.
 
+## Futuros
+
+- Modo lupa al pasar el mouse sobre la imagen principal del producto para
+  ampliar detalles sin abrir un modal.
+
 ## Modelos 3D
 
 Hay dos resultados que deben mantenerse separados:
