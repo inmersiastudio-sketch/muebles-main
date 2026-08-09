@@ -397,31 +397,14 @@ export function ARPreview({
                       className="h-32 w-32 md:h-44 md:w-44 rounded-lg border border-slate-200 bg-white p-2"
                     />
                   </div>
-                  <p className="pt-2 md:pt-3 text-xs text-slate-600">
-                    El código abre una página unificada: iPhone genera Quick Look desde el GLB y Android usa WebXR o Scene Viewer.
+                  <p className="pt-2 md:pt-3 text-xs text-slate-500">
+                    Escaneá el código QR desde tu celular para proyectar el mueble en tu espacio en escala real 1:1.
                   </p>
                 </div> : (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-900">
-                    <strong>Vista 3D orientativa.</strong> La escala física todavía no fue verificada, por eso la proyección AR está deshabilitada.
+                    <strong>Vista 3D interactiva.</strong> Usá los controles para rotar e inspeccionar el producto en 360°.
                   </div>
                 )}
-
-                {isVerified && <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-3 md:p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                    <Smartphone size={16} /> Abrir en este dispositivo
-                  </div>
-                  <a
-                    href={mobileARLink || undefined}
-                    rel={isIOS ? "ar" : undefined}
-                    onClick={() => track("ar_launch", { target: mobileARLink })}
-                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1d4ed8] hover:bg-[#1e40af] text-white font-bold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                  >
-                    Abrir experiencia AR
-                  </a>
-                  <p className="text-xs text-slate-600">
-                    La experiencia usa el GLB vigente y evita abrir archivos USDZ desactualizados.
-                  </p>
-                </div>}
 
                 {isVerified && isMobile && (
                   <div className="space-y-2 rounded-xl border border-amber-100 bg-amber-50 p-3 md:p-4">

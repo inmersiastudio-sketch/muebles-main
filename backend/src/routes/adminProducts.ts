@@ -15,8 +15,8 @@ router.use(requireAuth, requireRole([UserRole.SUPER_ADMIN, UserRole.STORE_OWNER]
 
 const VariantSchema = z.object({
     id: z.string().optional(), // Para updates
-    sku: z.string().min(1),
-    name: z.string().min(1),
+    sku: z.string().optional(),
+    name: z.string().default('Estándar'),
     color: z.string().optional(),
     fabric: z.string().optional(),
     size: z.string().optional(),
@@ -48,7 +48,7 @@ const ProductMediaSchema = z.object({
 const CreateProductSchema = z.object({
     // Core
     storeId: z.number().int().positive().optional(),
-    sku: z.string().min(1),
+    sku: z.string().optional(),
     name: z.string().min(1).max(200),
     description: z.string().optional(),
 
@@ -65,35 +65,35 @@ const CreateProductSchema = z.object({
 
     // Estructuras JSON
     dimensions: z.object({
-        widthCm: z.number().positive(),
-        heightCm: z.number().positive(),
-        depthCm: z.number().positive(),
-        weightKg: z.number().positive(),
+        widthCm: z.number().positive().optional(),
+        heightCm: z.number().positive().optional(),
+        depthCm: z.number().positive().optional(),
+        weightKg: z.number().positive().optional(),
         packageDimensions: z.object({
-            widthCm: z.number().positive(),
-            heightCm: z.number().positive(),
-            depthCm: z.number().positive(),
-            weightKg: z.number().positive(),
+            widthCm: z.number().positive().optional(),
+            heightCm: z.number().positive().optional(),
+            depthCm: z.number().positive().optional(),
+            weightKg: z.number().positive().optional(),
         }).optional(),
     }).optional(),
 
     materials: z.object({
-        primary: z.string().min(1),
+        primary: z.string().optional(),
         structure: z.string().optional(),
         upholstery: z.object({
-            fabric: z.string(),
-            composition: z.string(),
-            cleaningCode: z.enum(['W', 'S', 'WS', 'X']),
+            fabric: z.string().optional(),
+            composition: z.string().optional(),
+            cleaningCode: z.enum(['W', 'S', 'WS', 'X']).optional(),
         }).optional(),
         legs: z.string().optional(),
-        finish: z.string(),
+        finish: z.string().optional(),
         certifications: z.array(z.string()).default([]),
     }).optional(),
 
     warranty: z.object({
-        type: z.enum(['factory', 'extended', 'none']),
-        durationMonths: z.number().int().positive(),
-        coverage: z.string(),
+        type: z.enum(['factory', 'extended', 'none']).optional(),
+        durationMonths: z.number().int().positive().optional(),
+        coverage: z.string().optional(),
         termsUrl: z.string().url().optional(),
         conditions: z.array(z.string()).default([]),
         exclusions: z.array(z.string()).default([]),
@@ -101,22 +101,22 @@ const CreateProductSchema = z.object({
 
     logistics: z.object({
         deliveryTimeDays: z.object({
-            min: z.number().int().positive(),
-            max: z.number().int().positive(),
-        }),
-        deliveryType: z.enum(['home', 'branch', 'pickup', 'multiple']),
+            min: z.number().int().positive().optional(),
+            max: z.number().int().positive().optional(),
+        }).optional(),
+        deliveryType: z.enum(['home', 'branch', 'pickup', 'multiple']).optional(),
         shippingZones: z.array(z.string()).default(['CABA', 'GBA']),
         assembly: z.object({
-            included: z.boolean(),
+            included: z.boolean().optional(),
             price: z.number().optional(),
             estimatedTimeMinutes: z.number().int().optional(),
-            difficulty: z.enum(['easy', 'medium', 'professional']),
+            difficulty: z.enum(['easy', 'medium', 'professional']).optional(),
             manualUrl: z.string().url().optional(),
-        }),
+        }).optional(),
         packaging: z.object({
-            piecesCount: z.number().int().positive(),
-            specialHandling: z.boolean(),
-        }),
+            piecesCount: z.number().int().positive().optional(),
+            specialHandling: z.boolean().optional(),
+        }).optional(),
     }).optional(),
 
     // SEO
@@ -127,7 +127,7 @@ const CreateProductSchema = z.object({
     }).optional(),
 
     // Relaciones
-    variants: z.array(VariantSchema).min(1).optional(),
+    variants: z.array(VariantSchema).default([]),
     media: z.array(ProductMediaSchema).default([]),
 
     // Precios generales (si aplica)
@@ -197,8 +197,43 @@ function calculateVolume(dimensions: any): number {
     return Math.round(volume * 100) / 100; // 2 decimales
 }
 
-// Helper para mapear URLs planas a la estructura media de Zod/Prisma
 function mapFlatMediaToRequestMedia(req: Request) {
+    if (!req.body) return;
+
+    // Auto-generate SKU if missing or empty
+    if (!req.body.sku || typeof req.body.sku !== 'string' || req.body.sku.trim() === '') {
+        req.body.sku = `SKU-${Date.now().toString(36).toUpperCase()}`;
+    }
+
+    // Auto-generate default variant if variants is missing or empty
+    const price = Number(req.body.price || req.body.salePrice || req.body.listPrice || 0);
+    const stock = Number(req.body.stockQty || req.body.stock || 0);
+    const variants = Array.isArray(req.body.variants) ? req.body.variants : [];
+
+    if (variants.length === 0) {
+        req.body.variants = [
+            {
+                sku: `${req.body.sku}-DEF`,
+                name: req.body.name || 'Estándar',
+                listPrice: price > 0 ? price : 1000,
+                salePrice: price > 0 ? price : 1000,
+                stock: stock >= 0 ? stock : 0,
+                isDefault: true,
+                images: [],
+            }
+        ];
+    } else {
+        req.body.variants = variants.map((v: any, idx: number) => ({
+            ...v,
+            sku: v.sku && String(v.sku).trim() !== '' ? String(v.sku) : `${req.body.sku}-VAR-${idx + 1}`,
+            name: v.name && String(v.name).trim() !== '' ? String(v.name) : `Variante ${idx + 1}`,
+            listPrice: Number(v.listPrice || v.price || price || 1000),
+            salePrice: Number(v.salePrice || v.price || price || 1000),
+            stock: Number(v.stock ?? stock ?? 0),
+            isDefault: v.isDefault ?? (idx === 0),
+        }));
+    }
+
     if (req.body.imageUrl || req.body.glbUrl || req.body.usdzUrl || req.body.arUrl) {
         const media = req.body.media && Array.isArray(req.body.media) ? [...req.body.media] : [];
         

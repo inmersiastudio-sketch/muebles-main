@@ -13,7 +13,48 @@ export async function runAutoSeed() {
     });
 
     if (storeExists) {
-      console.log("[auto-seed] La tienda 'nativo' ya existe. Omitiendo auto-seed.");
+      console.log("[auto-seed] La tienda 'nativo' ya existe. Actualizando modelo 3D y teléfono de contacto...");
+      await prisma.store.update({
+        where: { id: storeExists.id },
+        data: {
+          phone: "3517018328",
+          whatsapp: "5493517018328",
+        },
+      });
+
+      const existingProduct = await prisma.product.findFirst({
+        where: { storeId: storeExists.id, slug: "sillon-nativo-boucle-3-cuerpos" },
+      });
+
+      if (existingProduct) {
+        // Remove old 3D media models and re-create high quality GLB/USDZ
+        await prisma.productMedia.deleteMany({
+          where: { productId: existingProduct.id, type: MediaType.MODEL_3D },
+        });
+
+        await prisma.productMedia.createMany({
+          data: [
+            {
+              productId: existingProduct.id,
+              type: MediaType.MODEL_3D,
+              mediaFormat: MediaFormat.GLB,
+              url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/GlamVelvetSofa/glTF-Binary/GlamVelvetSofa.glb",
+              alt: "Modelo 3D Sofá Glam Bouclé (GLB)",
+              sortOrder: 10,
+              isPrimary: true,
+            },
+            {
+              productId: existingProduct.id,
+              type: MediaType.MODEL_3D,
+              mediaFormat: MediaFormat.USDZ,
+              url: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/GlamVelvetSofa/glTF-USDZ/GlamVelvetSofa.usdz",
+              alt: "Modelo 3D Sofá Glam Bouclé para iPhone/QuickLook (USDZ)",
+              sortOrder: 11,
+              isPrimary: false,
+            },
+          ],
+        });
+      }
       return;
     }
 
@@ -56,8 +97,8 @@ export async function runAutoSeed() {
         logoUrl: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=300&q=80",
         bannerUrl: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80",
         email: "contacto@nativomuebles.com",
-        whatsapp: "5493512345678",
-        phone: "+54 9 351 234-5678",
+        whatsapp: "5493517018328",
+        phone: "3517018328",
         address: "Av. Rafael Núñez 4200, Córdoba",
         city: "Córdoba",
         province: "Córdoba",

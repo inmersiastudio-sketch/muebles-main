@@ -641,6 +641,7 @@ enum InquiryResult {
   LOST_STOCK
   LOST_NO_REPLY
   LOST_OTHER
+  NO_RESPONSE
   PENDING
 }
 
