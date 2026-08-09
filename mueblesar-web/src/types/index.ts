@@ -651,3 +651,16 @@ export interface CloseInquiryData {
   lossReason?: string;
   notes?: string;
 }
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      "model-viewer": any;
+    }
+  }
+  namespace React.JSX {
+    interface IntrinsicElements {
+      "model-viewer": any;
+    }
+  }
+}

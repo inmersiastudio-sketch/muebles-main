@@ -170,8 +170,11 @@ export const CreateProductSchema = z.object({
 });
 
 export const UpdateProductSchema = CreateProductSchema.partial().extend({
-  sku: z.string().min(1).optional(),
+  sku: z.string().optional(), // En updates, el SKU no es obligatorio si no cambia
 });
+
+export const createProductSchema = CreateProductSchema;
+export const updateProductSchema = UpdateProductSchema;
 
 // ============================================
 // SCHEMAS DE QUERY Y OTROS

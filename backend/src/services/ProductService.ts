@@ -364,7 +364,7 @@ export class ProductService {
 
     if (images && images.length > 0) {
       await tx.productMedia.createMany({
-        data: images.map((img) => ({
+        data: images.map((img: any) => ({
           productId: product.id,
           url: img.url,
           type: 'IMAGE',
