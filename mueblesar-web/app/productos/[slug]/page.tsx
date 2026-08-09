@@ -196,30 +196,64 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                 </span>
               </div>
 
+              {/* Furniture Specifications Chips */}
+              {(typedProduct.dimensions.widthCm || typedProduct.dimensions.depthCm || typedProduct.dimensions.heightCm) && (
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-700">
+                  {typedProduct.dimensions.widthCm > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 shadow-2xs">
+                      <span className="text-slate-400 font-mono">↔</span> {typedProduct.dimensions.widthCm} cm ancho
+                    </span>
+                  )}
+                  {typedProduct.dimensions.depthCm > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 shadow-2xs">
+                      <span className="text-slate-400 font-mono">↕</span> {typedProduct.dimensions.depthCm} cm prof.
+                    </span>
+                  )}
+                  {typedProduct.dimensions.heightCm > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 shadow-2xs">
+                      <span className="text-slate-400 font-mono">↑</span> {typedProduct.dimensions.heightCm} cm alto
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Price Section */}
               <div className="mt-5 pb-5 border-b border-[var(--gray-100)]">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-3xl sm:text-4xl font-bold text-[var(--gray-900)]">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
                     {formatPrice(defaultVariant?.pricing.salePrice || 0)}
                   </span>
                   {typedProduct.pricing.hasDiscount && (
-                    <span className="text-xl text-[var(--gray-400)] line-through">
-                      {formatPrice(defaultVariant.pricing.listPrice)}
-                    </span>
+                    <>
+                      <span className="text-xl text-slate-400 line-through">
+                        {formatPrice(defaultVariant.pricing.listPrice)}
+                      </span>
+                      <span className="rounded-md bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
+                        -{typedProduct.pricing.discountPercentage}% OFF
+                      </span>
+                    </>
                   )}
-                  <span className="text-sm text-[var(--gray-500)] font-medium">
-                    Disponibilidad a confirmar con la tienda
-                  </span>
                 </div>
 
-                {/* AR Badge */}
-                {hasAr && (
-                  <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--primary-50)] text-[var(--primary-700)] rounded-full text-sm font-medium">
-                    <Box className="w-4 h-4" />
-                    Modelo 3D disponible
-                  </div>
-                )}
+                <div className="mt-3 flex items-center gap-3 text-sm">
+                  {typedProduct.inventory.inStock ? (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-600">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                      </span>
+                      En stock
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 font-medium">Disponibilidad a confirmar con la tienda</span>
+                  )}
 
+                  {hasAr && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                      <Box className="w-3.5 h-3.5" /> Modelo 3D disponible
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Shipping Banner */}
@@ -236,21 +270,6 @@ export default async function ProductDetail({ params }: ProductDetailPageProps) 
                   </p>
                 </div>
               </div>
-
-              {hasPackageDimensions && packageDimensions && (
-                <div className="mt-4">
-                  <PackageARPreview
-                    productId={typedProduct.id}
-                    storeId={store?.id}
-                    productName={typedProduct.name}
-                    widthCm={packageDimensions.widthCm}
-                    heightCm={packageDimensions.heightCm}
-                    depthCm={packageDimensions.depthCm}
-                    weightKg={packageDimensions.weightKg}
-                    piecesCount={typedProduct.logistics.packaging?.piecesCount}
-                  />
-                </div>
-              )}
 
               {/* Short Description */}
               {typedProduct.description && (
